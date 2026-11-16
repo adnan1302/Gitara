@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var KEY = "gitara-v2";
-  var LABELS = { idea: "Ideja", progress: "U toku", refine: "Za doradu", done: "Završeno" };
+  var LABELS = { idea: "Ideja", progress: "U toku", refine: "Za doradu", done: "Kolekcija" };
   var DEFAULT_CHIPS = { en: ["C", "D", "Dm", "E", "Em", "F", "G", "A", "Am", "B7"], de: ["C", "D", "Dm", "E", "Em", "F", "G", "A", "Am", "H7"] };
   var SEEDS = window.GITARA_SEEDS || [];
 
@@ -175,7 +175,7 @@
     }).join("") + (labelled ? "<!--lab-->" : "");
   }
 
-  /* ---------- Početna: tabla „U radu“ i lista „Završeno“ ---------- */
+  /* ---------- Početna: tabla „U radu“ i lista „Kolekcija“ ---------- */
   var tab = "work", newStatus = "", menuSong = null;
   var COLUMNS = ["idea", "progress", "refine"];
   var EDGE = ["#ff9a76", "#7ad3c0", "#f4c95d", "#b9a2ff", "#7fb8ff", "#ff8fb1", "#a6d57a", "#f2a65a"];
@@ -203,7 +203,7 @@
     } else if (tab === "done") {
       board.hidden = true; board.innerHTML = ""; rows.hidden = false;
       rows.innerHTML = done.map(function (s) { return cardHTML(s, false); }).join("");
-      empty.hidden = done.length > 0; empty.textContent = "Još nema završenih pjesama. Premjesti pjesmu ovdje kad je gotova.";
+      empty.hidden = done.length > 0; empty.textContent = "Kolekcija je još prazna. Premjesti pjesmu ovdje kad je naučiš.";
     } else {
       rows.hidden = true; rows.innerHTML = ""; empty.hidden = true; board.hidden = false;
       board.innerHTML = COLUMNS.map(function (st) {
@@ -292,7 +292,7 @@
       }
     }
     d.ghost.remove(); document.body.classList.remove("dragging"); $("#tabDone").classList.remove("drop");
-    if (status) { if (moveSong(d.id, status, before) && status === "done") toast("Premješteno u Završeno."); }
+    if (status) { if (moveSong(d.id, status, before) && status === "done") toast("Premješteno u Kolekciju."); }
     else renderList();
   }
   $("#board").addEventListener("pointerdown", function (e) {
@@ -432,9 +432,68 @@
   }
   $("#songViews").addEventListener("click", function (e) {
     var b = e.target.closest("[data-view]"); if (!b) return;
-    songView = b.dataset.view; renderSong();
+    songView = b.dataset.view; asStop(); renderSong();
   });
   $("#songBack").addEventListener("click", function () { location.hash = ""; });
+
+  /* ---------- Automatsko listanje ----------
+     Brzina 1–10; pamti se po pjesmi samo na ovom uređaju (ne ide u sinhronizaciju).
+     Dok je prst na ekranu, listanje stoji, pa se može ručno vratiti ili preskočiti dio. */
+  var AS_PX = [6, 9, 12, 16, 20, 25, 31, 38, 46, 56]; // piksela u sekundi za brzine 1–10
+  var asOn = false, asRaf = 0, asLast = 0, asCarry = 0, asHold = false;
+  function asSpeed() {
+    var m = state.settings.scrollSpeed || {}, v = current && m[current.id];
+    return typeof v === "number" && v >= 1 && v <= 10 ? v : 4;
+  }
+  function asTarget() { return songView === "tab" && current && current.tabUrl ? $("#pdfPages") : null; }
+  function asUI() {
+    var box = $("#autoScroll"), t = $("#asToggle");
+    box.classList.toggle("on", asOn);
+    t.setAttribute("aria-pressed", asOn ? "true" : "false");
+    t.setAttribute("aria-label", asOn ? "Zaustavi automatsko listanje" : "Pokreni automatsko listanje");
+    $("#asVal").textContent = asSpeed();
+  }
+  function asStep(now) {
+    if (!asOn) return;
+    var dt = asLast ? Math.min(now - asLast, 100) : 0; asLast = now;
+    if (!asHold && dt) {
+      asCarry += AS_PX[asSpeed() - 1] * dt / 1000;
+      var px = Math.floor(asCarry);
+      if (px >= 1) {
+        asCarry -= px;
+        var box = asTarget();
+        if (box) {
+          if (box.scrollTop + box.clientHeight >= box.scrollHeight - 1) { asStop(); return; }
+          box.scrollTop += px;
+        } else {
+          var root = document.scrollingElement || document.documentElement;
+          if (window.scrollY + window.innerHeight >= root.scrollHeight - 1) { asStop(); return; }
+          window.scrollBy(0, px);
+        }
+      }
+    }
+    asRaf = requestAnimationFrame(asStep);
+  }
+  function asStart() {
+    if (!current) return;
+    asOn = true; asLast = 0; asCarry = 0; asHold = false; asUI();
+    cancelAnimationFrame(asRaf); asRaf = requestAnimationFrame(asStep);
+  }
+  function asStop() { asOn = false; cancelAnimationFrame(asRaf); asRaf = 0; asUI(); }
+  function asSetSpeed(d) {
+    if (!current) return;
+    var v = Math.max(1, Math.min(10, asSpeed() + d));
+    state.settings.scrollSpeed = state.settings.scrollSpeed || {};
+    state.settings.scrollSpeed[current.id] = v;
+    save(true); asUI();
+  }
+  $("#asToggle").addEventListener("click", function () { if (asOn) asStop(); else asStart(); });
+  $("#asSlower").addEventListener("click", function () { asSetSpeed(-1); });
+  $("#asFaster").addEventListener("click", function () { asSetSpeed(1); });
+  // Prst na tekstu zaustavlja kretanje dok se ne podigne; dodir na kontrolama se ne računa.
+  document.addEventListener("touchstart", function (e) { if (asOn && !e.target.closest("#autoScroll")) asHold = true; }, { passive: true });
+  ["touchend", "touchcancel"].forEach(function (ev) { document.addEventListener(ev, function () { asHold = false; asLast = 0; }, { passive: true }); });
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState !== "visible") asStop(); });
   $("#btnView").addEventListener("click", function () { $("#viewPanel").hidden = false; $("#backdrop").hidden = false; });
   $("#viewPanelClose").addEventListener("click", closePanel);
   $("#songMenu").addEventListener("click", function () {
@@ -771,7 +830,7 @@
     else if (a === "sync-connect") syncConnect();
     else if (a === "sync-now") { syncNow(true); }
     else if (a === "sync-off") syncDisconnect();
-    else if (a === "move") { var ms = menuSong; closePanel(); if (ms) { moveSong(ms.id, act.dataset.status); toast("Premješteno u " + LABELS[act.dataset.status] + "."); } }
+    else if (a === "move") { var ms = menuSong; closePanel(); if (ms) { moveSong(ms.id, act.dataset.status); toast("Premješteno u " + (act.dataset.status === "done" ? "Kolekciju" : LABELS[act.dataset.status]) + "."); } }
     else if (a === "restore") {
       var back = state.deletedSeeds.slice(), now = Date.now();
       back.forEach(function (id) { delete state.removed[id]; });
@@ -832,13 +891,13 @@
     if ((m = /^#\/p\/(.+)$/.exec(h))) {
       var s = findSong(decodeURIComponent(m[1]));
       if (s) {
-        if (current !== s) songView = "text";
-        current = s; show("viewSong"); renderSong();
+        if (current !== s) { songView = "text"; asStop(); }
+        current = s; show("viewSong"); renderSong(); asUI();
         if (state.settings.keepAwake !== false) { wakeWanted = true; acquireWake(); } else updateWakeUI();
         return;
       }
     }
-    current = null; releaseWake(); exitViewerFullscreen(); setImmersive(false);
+    current = null; asStop(); releaseWake(); exitViewerFullscreen(); setImmersive(false);
     show("viewList"); renderList();
   }
   window.addEventListener("hashchange", route);

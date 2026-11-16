@@ -60,7 +60,7 @@ button{cursor:pointer;touch-action:manipulation}
 #viewEdit .bar{border-bottom:1px solid var(--line)}
 #viewSong .wrap{padding-bottom:0}
 
-/* Početna: kartice „U radu“ i „Završeno“, pretraga */
+/* Početna: kartice „U radu“ i „Kolekcija“, pretraga */
 .hometabs{display:flex;gap:24px;margin-right:auto}
 .tab{border:0;background:transparent;min-height:44px;padding:0 2px;font:500 15px var(--sans);color:var(--muted);white-space:nowrap;border-radius:4px}
 .tab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
@@ -134,6 +134,16 @@ body.dragging .board{scroll-snap-type:none}
 .tabpre{font:500 .78em/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto;border:1px solid var(--line);border-radius:6px;padding:10px;margin:.4em 0;-webkit-overflow-scrolling:touch}
 .hint{color:var(--muted);font-size:14px;margin:10px 0;font-family:var(--sans)}
 #showControls{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;background:var(--surface);border-color:var(--line);color:var(--text)}
+/* Automatsko listanje: mala kontrola dolje na sredini; brzina se vidi samo dok lista. */
+.autoscroll{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:2px;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--line);border-radius:12px;padding:2px;box-shadow:0 2px 10px var(--shadow,#0002)}
+.autoscroll .btn{min-width:44px;padding:0 10px}
+.autoscroll svg{width:20px;height:20px;fill:currentColor}
+.autoscroll .as-pause,.autoscroll.on .as-play{display:none}
+.autoscroll.on .as-pause{display:block}
+.as-speed{display:none;align-items:center}
+.autoscroll.on .as-speed{display:flex}
+@media(max-width:599px){#showControls{bottom:calc(68px + env(safe-area-inset-bottom))}}
+.as-val{min-width:2ch;text-align:center;font:600 15px var(--sans);color:var(--muted)}
 body.immersive #viewSong .bar,body.immersive .song-head,body.immersive #songViews,body.immersive .pdf-toolbar{display:none}
 body.immersive .sheet{padding-top:calc(14px + env(safe-area-inset-top))}
 /* PDF */
@@ -200,7 +210,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 <!-- LISTA -->
 <main id="viewList">
   <div class="bar"><div class="bar-in nav">
-    <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Završeno</button></div>
+    <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Kolekcija</button></div>
     <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
     <button id="btnNew" class="btn" type="button"><b>+</b> Dodaj</button>
     <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
@@ -233,6 +243,10 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
     <div id="pdfPages" class="pdf-pages"></div>
   </div></div>
   <button class="btn outline" id="showControls" type="button" hidden>Prikaži kontrole</button>
+  <div id="autoScroll" class="autoscroll" role="group" aria-label="Automatsko listanje">
+    <span class="as-speed"><button class="btn" id="asSlower" type="button" aria-label="Sporije">−</button><span class="as-val" id="asVal" aria-live="polite">4</span><button class="btn" id="asFaster" type="button" aria-label="Brže">+</button></span>
+    <button class="btn" id="asToggle" type="button" aria-pressed="false" aria-label="Pokreni automatsko listanje"><svg class="as-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><svg class="as-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button>
+  </div>
 </main>
 
 <!-- UREĐIVANJE -->

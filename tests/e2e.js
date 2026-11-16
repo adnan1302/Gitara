@@ -32,7 +32,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
   const chords = sel => page.evaluate(q => [...document.querySelectorAll(q + " .c > *")].map(c => c.textContent).join(" "), sel);
   const noOverflow = async () => assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "horizontalno prelijevanje");
 
-  // Pjesme su podijeljene na tablu „U radu“ i karticu „Završeno“, pa brojimo i tražimo kroz obje.
+  // Pjesme su podijeljene na tablu „U radu“ i karticu „Kolekcija“, pa brojimo i tražimo kroz obje.
   const total = async () => { let n = 0; for (const tb of ["#tabDone", "#tabWork"]) { await page.click(tb); n += await page.locator(".song").count(); } return n; };
   const openSong = async name => {
     for (const tb of ["#tabWork", "#tabDone"]) { await page.click(tb); const l = page.locator(".song .cd-main", { hasText: name }); if (await l.count()) { await l.first().click(); return; } }
@@ -43,7 +43,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
   await page.goto(BASE);
   await step("početnih 8 pjesama, bez grešaka", async () => {
     assert.strictEqual(await total(), 8);
-    assert.strictEqual(await page.locator("#tabDone").innerText(), "Završeno");
+    assert.strictEqual(await page.locator("#tabDone").innerText(), "Kolekcija");
     assert.deepStrictEqual(errors, []);
   });
   await step("stabilni ID-jevi u pohrani", async () => {
@@ -142,6 +142,36 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.reload();
     assert.strictEqual(await page.evaluate(() => getComputedStyle(document.querySelector("#songSheet")).fontSize), f1);
   });
+  await step("automatsko listanje: kreće, brzina se pamti po pjesmi, staje pri izlasku", async () => {
+    await page.goto(BASE); await openSong("Da, to sam ja");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    assert(await page.locator("#asToggle").isVisible(), "dugme za listanje se vidi");
+    assert(!(await page.locator("#asFaster").isVisible()), "brzina skrivena dok ne lista");
+    await page.click("#asToggle");
+    assert.strictEqual(await page.getAttribute("#asToggle", "aria-pressed"), "true");
+    assert.strictEqual(await page.textContent("#asVal"), "4");
+    await page.click("#asFaster"); await page.click("#asFaster");
+    assert.strictEqual(await page.textContent("#asVal"), "6");
+    const y0 = await page.evaluate(() => window.scrollY);
+    await page.waitForTimeout(1500);
+    const y1 = await page.evaluate(() => window.scrollY);
+    assert(y1 - y0 > 15, "stranica se pomjerila: " + (y1 - y0));
+    await page.click("#asToggle");
+    const y2 = await page.evaluate(() => window.scrollY);
+    await page.waitForTimeout(600);
+    assert.strictEqual(await page.evaluate(() => window.scrollY), y2, "stalo nakon pauze");
+    await page.click("#asToggle");
+    await page.click("#songBack");
+    await page.waitForSelector("#viewList:not([hidden])");
+    await openSong("Da, to sam ja");
+    assert.strictEqual(await page.getAttribute("#asToggle", "aria-pressed"), "false", "izlazak iz pjesme gasi listanje");
+    await page.click("#asToggle");
+    assert.strictEqual(await page.textContent("#asVal"), "6", "brzina zapamćena za pjesmu");
+    await page.click("#asToggle");
+    const sync = await page.evaluate(() => JSON.parse(localStorage.getItem("gitara-v2")).settings.scrollSpeed);
+    assert(sync && Object.values(sync).includes(6));
+  });
+
   await step("izvoz i uvoz", async () => {
     await page.goto(BASE);
     await page.click("#btnMenu");
@@ -168,7 +198,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     assert.strictEqual(await page.locator(".song").count(), 1);
     await page.fill("#search", "");
   });
-  await step("tabla: tri kolone, kartica Završeno, premještanje menijem", async () => {
+  await step("tabla: tri kolone, kartica Kolekcija, premještanje menijem", async () => {
     await page.goto(BASE);
     assert.strictEqual(await page.locator(".col").count(), 3);
     const before = await colOf("progress");
@@ -179,7 +209,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.locator('#panel [data-act="move"][data-status="done"]').tap();
     assert.strictEqual(await page.locator(".cd", { hasText: before[0] }).count(), 0);
     await page.click("#tabDone");
-    assert.strictEqual(await page.locator(".cd", { hasText: before[0] }).count(), 1, "pjesma je na kartici Završeno");
+    assert.strictEqual(await page.locator(".cd", { hasText: before[0] }).count(), 1, "pjesma je na kartici Kolekcija");
     await page.reload();
     assert.strictEqual(await page.evaluate(n => JSON.parse(localStorage.getItem("gitara-v2")).songs.find(s => s.title === n).status, before[0]), "done", "status ostaje nakon ponovnog pokretanja");
     await page.click("#tabDone");
@@ -215,7 +245,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.mouse.move(g.x + 60, g.y, { steps: 3 });
     await page.mouse.move(tabDone.x + 20, tabDone.y + 20, { steps: 8 });
     await page.mouse.up();
-    assert(!(await colOf("idea")).includes(name), "spuštanje na karticu Završeno");
+    assert(!(await colOf("idea")).includes(name), "spuštanje na karticu Kolekcija");
     await page.click("#tabDone"); await page.locator(".cd", { hasText: name }).locator(".grip").click();
     await page.locator('#panel [data-act="move"][data-status="progress"]').click();
     await page.setViewportSize(SIZES.ipadPortrait);
