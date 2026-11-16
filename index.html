@@ -65,13 +65,16 @@ button{cursor:pointer;touch-action:manipulation}
 .tab{border:0;background:transparent;min-height:44px;padding:0 2px;font:500 15px var(--sans);color:var(--muted);white-space:nowrap;border-radius:4px}
 .tab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
 .tab.drop{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
-.search{flex:0 1 260px;min-width:0;display:flex;align-items:center;gap:8px;background:transparent;border-bottom:1px solid var(--line);padding:0 6px;min-height:44px;color:var(--muted)}
+.bar-in.nav{align-items:flex-start}
+.search-tools{flex:0 1 260px;min-width:0;display:grid;gap:2px}
+.search{min-width:0;display:flex;align-items:center;gap:8px;background:transparent;border-bottom:1px solid var(--line);padding:0 6px;min-height:44px;color:var(--muted)}
 .search svg{width:18px;height:18px;flex:none}
-.search input[type=search]{border:0;outline:0;background:transparent;width:100%;min-width:0;min-height:42px;padding:0;color:var(--text);font-size:16px;-webkit-appearance:none;appearance:none}
+.search input[type=search]{border:0;outline:0;background:transparent;width:100%;min-width:0;min-height:42px;padding:0;color:var(--text);font:500 16px/1.5 var(--sans);-webkit-appearance:none;appearance:none}
+.search input::placeholder{color:var(--muted);opacity:1}
 .search:focus-within{outline:2px solid var(--accent);outline-offset:1px}
-#btnNew{border-color:var(--line);font-weight:600}
-#btnNew b{color:var(--accent);font-weight:600}
-@media(max-width:699px){.bar-in.nav{flex-wrap:wrap}.hometabs{flex:1}#btnMenu{order:2}.search{order:3;flex:1 1 60%}#btnNew{order:4}}
+#btnNew{border-color:var(--line);font:500 16px/1.5 var(--sans)}
+#btnNew b{color:var(--accent);font-weight:500}
+@media(max-width:699px){.bar-in.nav{flex-wrap:wrap}.hometabs{flex:1}#btnMenu{order:2}.search-tools{order:3;flex:1 1 60%}#btnNew{order:4}}
 .notice{border-left:3px solid var(--accent);background:var(--surface);color:var(--text);padding:10px 12px;margin:8px 0 12px;font-size:14px;border-radius:0 6px 6px 0}
 .empty{padding:36px 8px;text-align:center;color:var(--muted)}
 
@@ -209,8 +212,10 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 .content-dot{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:9px;background:currentColor}
 .content-dot.red{color:var(--label-red)}.content-dot.yellow{color:var(--label-yellow)}
 #songLabel .content-dot{margin:0;width:10px;height:10px}
-.filter-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 12px;color:var(--muted);font-size:12px}
-.filter-row select{width:auto;max-width:260px;min-height:40px;padding:6px 28px 6px 10px;border:1px solid var(--line);border-radius:6px;background-color:transparent;color:var(--text);font:inherit}
+.filter-row{position:relative;display:flex;align-items:center;gap:8px;min-width:0;padding-left:6px;color:var(--muted);font:500 16px/1.5 var(--sans)}
+.filter-row::after{content:"";position:absolute;right:8px;top:16px;width:5px;height:5px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg);pointer-events:none}
+.filter-row select{flex:1;min-width:0;width:0;min-height:40px;padding:6px 24px 6px 0;border:0;border-radius:4px;background:transparent;color:var(--muted);font:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;text-overflow:ellipsis}
+.filter-row select:hover{color:var(--text)}
 .label-heading{margin-top:16px!important}.comments-toggle{position:relative}.comments-toggle svg{width:21px;height:21px}
 #commentsCount{position:absolute;top:0;right:0;min-width:14px;font-size:10px;color:var(--accent);background:var(--bg);border-radius:8px}
 #commentsCount:empty{display:none}
@@ -219,7 +224,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 #commentForm label{font-size:13px}#commentText{font:400 15px/1.5 var(--sans);resize:vertical;min-height:90px;margin-top:6px}
 .comment-submit{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 20px}.comment-submit .hint{font-size:11px;margin:0}
 .comment{border-top:1px solid var(--line);padding:14px 0}.comment p{font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 6px}.comment-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}.comment-meta .btn{font-size:11px;color:var(--muted);padding:0 6px}
-@media(max-width:699px){.comments-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-height:65dvh;border-radius:14px 14px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}.filter-row{margin-top:2px}.filter-row select{max-width:calc(100vw - 120px)}#viewSong .bar-in{gap:2px}}
+@media(max-width:699px){.comments-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-height:65dvh;border-radius:14px 14px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}#viewSong .bar-in{gap:2px}}
 </style>
 </head>
 <body>
@@ -228,14 +233,16 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 <main id="viewList">
   <div class="bar"><div class="bar-in nav">
     <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Kolekcija</button></div>
-    <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
+    <div class="search-tools">
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
+      <div class="filter-row"><label for="contentFilter">Sadržaj</label><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Žuta · treba doradu</option><option value="none">Bez oznake</option></select></div>
+    </div>
     <button id="btnNew" class="btn" type="button"><b>+</b> Dodaj</button>
     <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
     <button id="btnMenu" class="btn icon" type="button" aria-label="Meni">⋯</button>
   </div></div>
   <div class="wrap">
     <div id="notice" class="notice" role="alert" hidden></div>
-    <div class="filter-row"><label for="contentFilter">Sadržaj</label><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Žuta · treba doradu</option><option value="none">Bez oznake</option></select></div>
     <div id="board" class="board"></div>
     <section id="songs" class="rows" aria-live="polite"></section>
     <div id="empty" class="empty" hidden></div>
