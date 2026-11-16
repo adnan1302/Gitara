@@ -2,7 +2,7 @@
 
 Eksperimentalna dopuna na grani `claude/project-thread-5f9k6v`. Produkcijska grana `main` nije promijenjena.
 
-- Crvena: sadržaj nedostaje ili nije dobar; žuta: treba doradu. Oznaka se postavlja ručno i ne mijenja status učenja.
+- Crvena: sadržaj nedostaje ili nije dobar; plava: treba doradu. Ranija žuta oznaka sada se prikazuje plavo; postojeći podatkovni ključ `yellow` se zadržava radi kompatibilnosti. Oznaka se postavlja ručno i ne mijenja status učenja.
 - Filter radi u oba taba i zajedno s pretragom; pretraga kao ranije obuhvata sve statuse.
 - Komentari se otvaraju dugmetom uz Prikaz. Na računaru je to mali bočni panel, na telefonu donji panel. Otvara se samo na zahtjev. Nacrt ostaje lokalno sačuvan.
 

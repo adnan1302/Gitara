@@ -93,7 +93,9 @@ button{cursor:pointer;touch-action:manipulation}
 .cd small{font-size:13.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cd .mt{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;color:var(--muted);margin-top:12px;white-space:nowrap}
 .meta-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.comment-mark{display:inline-flex;flex:none;margin-left:auto;width:14px;height:14px;opacity:.8}
+.card-indicators{display:inline-flex;align-items:center;gap:10px;flex:none;margin-left:auto}
+.card-indicators .content-dot{margin:0}
+.comment-mark{display:inline-flex;flex:none;width:14px;height:14px;opacity:.8}
 .comment-mark svg{width:100%;height:100%}
 .grip{flex:none;width:44px;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;letter-spacing:-2px;border-radius:0 10px 10px 0;touch-action:none;cursor:grab}
 .cd.lifted{display:none}
@@ -209,10 +211,10 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 .setting #wakeBtn{border-color:var(--line);min-width:120px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);border-radius:8px;padding:10px 14px;font-size:14px;z-index:70;max-width:calc(100% - 32px);text-align:center}
 /* Diskretne oznake i komentari */
-:root{--label-red:#b43d3d;--label-yellow:#976a0b}
-:root[data-theme=dark]{--label-red:#ed8989;--label-yellow:#e3bf62}
+:root{--label-red:#e02d37;--label-review:#176ac2}
+:root[data-theme=dark]{--label-red:#ff505a;--label-review:#4e9cff}
 .content-dot{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:9px;background:currentColor}
-.content-dot.red{color:var(--label-red)}.content-dot.yellow{color:var(--label-yellow)}
+.content-dot.red{color:var(--label-red)}.content-dot.yellow{color:var(--label-review)}
 #songLabel .content-dot{margin:0;width:10px;height:10px}
 /* Filter zauzima mjesto jedne ikone; izbor ostaje dostupan tastaturom i dodirom. */
 .content-filter{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid var(--line);border-radius:10px;color:var(--muted)}
@@ -222,7 +224,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 .content-filter:focus-within{outline:2px solid var(--accent);outline-offset:1px}
 .content-filter:has(option:checked:not([value="all"]))::after{content:"";position:absolute;right:8px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--accent);pointer-events:none}
 .content-filter:has(option[value="red"]:checked)::after{background:var(--label-red)}
-.content-filter:has(option[value="yellow"]:checked)::after{background:var(--label-yellow)}
+.content-filter:has(option[value="yellow"]:checked)::after{background:var(--label-review)}
 .label-heading{margin-top:16px!important}.comments-toggle{position:relative}.comments-toggle svg{width:21px;height:21px}
 #commentsCount{position:absolute;top:0;right:0;min-width:14px;font-size:10px;color:var(--accent);background:var(--bg);border-radius:8px}
 #commentsCount:empty{display:none}
@@ -243,7 +245,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
   <div class="bar"><div class="bar-in nav">
     <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Kolekcija</button></div>
     <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
-    <label class="content-filter" title="Filtriraj po oznaci sadržaja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.5 7.5V19l-3-1.5v-5Z"/></svg><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Žuta · treba doradu</option><option value="none">Bez oznake</option></select></label>
+    <label class="content-filter" title="Filtriraj po oznaci sadržaja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.5 7.5V19l-3-1.5v-5Z"/></svg><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Plava · treba doradu</option><option value="none">Bez oznake</option></select></label>
     <button id="btnNew" class="btn" type="button"><b>+</b> Dodaj</button>
     <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
     <button id="btnMenu" class="btn icon" type="button" aria-label="Meni">⋯</button>
