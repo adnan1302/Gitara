@@ -495,6 +495,82 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     assert(!(await page.evaluate(() => localStorage.getItem("gitara-sync"))).includes("tok-A"));
     await ctxB.close();
   });
+  await step("PDF tablatura i tutorial: dodavanje, slanje na GitHub, drugi uređaj, bez mreže, uklanjanje", async () => {
+    // Lažni GitHub s više fajlova: pjesme kao JSON, PDF-ovi kao binarni fajlovi u folderu pdf/.
+    const files = new Map(); let n = 0;
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, accept", "access-control-allow-methods": "GET, PUT, OPTIONS" };
+    const send = (r, status, body) => r.fulfill({ status, headers: Object.assign({ "content-type": "application/json" }, cors), body: body === undefined ? "" : JSON.stringify(body) });
+    const fake = async r => {
+      const req = r.request(), url = new URL(req.url()), method = req.method();
+      if (method === "OPTIONS") return r.fulfill({ status: 204, headers: cors });
+      if (url.pathname === "/repos/t/podaci") return send(r, 200, { private: true });
+      const m = /^\/repos\/t\/podaci\/contents\/(.+)$/.exec(url.pathname); if (!m) return send(r, 404, {});
+      const path = decodeURI(m[1]), f = files.get(path);
+      if (method === "GET") {
+        if (!f) return send(r, 404, { message: "Not Found" });
+        if ((req.headers()["accept"] || "").includes("raw")) return r.fulfill({ status: 200, headers: Object.assign({ "content-type": "application/octet-stream" }, cors), body: f.buf });
+        return send(r, 200, { sha: f.sha, encoding: "base64", content: f.buf.toString("base64") });
+      }
+      const body = JSON.parse(req.postData());
+      if (f && body.sha !== f.sha) return send(r, f && !body.sha ? 422 : 409, { message: "sha" });
+      files.set(path, { buf: Buffer.from(body.content, "base64"), sha: "s" + (++n) });
+      return send(r, 200, { content: { sha: "s" + n } });
+    };
+    const pdfBytes = fs.readFileSync("tabs/all-of-me.pdf");
+    const mk = async size => { const c = await browser.newContext({ viewport: size, hasTouch: true }); await c.route("https://api.github.com/**", fake); const p = await c.newPage(); p.on("pageerror", e => errors.push("PDF: " + e)); p.on("dialog", d => d.accept()); return [c, p]; };
+    const connect = async p => {
+      await p.click("#btnMenu"); await p.click('#panel [data-act="sync"]');
+      await p.fill("#syncOwner", "t"); await p.fill("#syncRepo", "podaci"); await p.fill("#syncToken", "tok");
+      await p.click('#panel [data-act="sync-connect"]'); await p.waitForSelector("#panel", { state: "hidden" });
+    };
+    const open = async (p, name) => { for (const tb of ["#tabWork", "#tabDone"]) { await p.click(tb); const l = p.locator(".song .cd-main", { hasText: name }); if (await l.count()) { await l.first().click(); return; } } throw new Error("nema " + name); };
+    const [cA, pA] = await mk(SIZES.ipadPortrait), [cB, pB] = await mk(SIZES.iphone);
+    let at = "A povezivanje";
+    try {
+      await pA.goto(BASE); await connect(pA);
+      await open(pA, "Jednom su sadili lipu");
+      assert(!(await pA.locator('[data-view="tab"]').count()), "pjesma još nema tablaturu");
+      await pA.click("#songMenu"); await pA.click('[data-act="edit"]');
+      await pA.click("#moreTab summary");
+      assert.strictEqual(await pA.textContent("#fTabInfo"), "Nema PDF-a.");
+      await pA.setInputFiles("#fTabFile", { name: "lipa-tab.pdf", mimeType: "application/pdf", buffer: pdfBytes });
+      await pA.waitForFunction(() => /lipa-tab\.pdf/.test(document.querySelector("#fTabInfo").textContent));
+      await pA.fill("#fTutorial", "youtube.com/watch?v=lipa");
+      await pA.click("#editSave");
+      await pA.waitForSelector('[data-view="tab"]');
+      assert.strictEqual(await pA.getAttribute('#songViews a[href*="youtube"]', "href"), "https://youtube.com/watch?v=lipa", "tutorial link s https");
+      await pA.click('[data-view="tab"]'); await pA.waitForSelector("#pdfPages canvas", { timeout: 20000 });
+      for (let i = 0; i < 100 && ![...files.keys()].some(k => k.startsWith("pdf/")); i++) await pA.waitForTimeout(100);
+      const pdfPath = [...files.keys()].find(k => k.startsWith("pdf/"));
+      assert(pdfPath && /^pdf\/[0-9a-f]{20}\.pdf$/.test(pdfPath), "PDF je poslan u repo: " + pdfPath);
+      assert(files.get(pdfPath).buf.equals(pdfBytes), "isti bajtovi na GitHubu");
+      const songRef = JSON.parse(files.get("pjesme.json").buf.toString("utf8")).songs.find(x => x.title === "Jednom su sadili lipu");
+      assert.strictEqual(songRef.tabUrl, "gh:" + pdfPath);
+
+      // Drugi uređaj: dobija pjesmu, preuzima PDF, i prikazuje ga i bez interneta.
+      at = "B";
+      await pB.goto(BASE); await pB.evaluate(() => navigator.serviceWorker.ready);
+      await connect(pB);
+      await pB.waitForFunction(() => JSON.parse(localStorage.getItem("gitara-v2")).songs.some(x => /^gh:pdf\//.test(x.tabUrl || "")));
+      await open(pB, "Jednom su sadili lipu");
+      await pB.click('[data-view="tab"]'); await pB.waitForSelector("#pdfPages canvas", { timeout: 20000 });
+      await pB.waitForFunction(async () => (await Promise.all(["app.js", "sync.js", "vendor/pdfjs/pdf.min.js", "vendor/pdfjs/pdf.worker.min.js"].map(u => caches.match(u)))).every(Boolean), null, { timeout: 30000 });
+      await cB.setOffline(true); at = "B bez mreže";
+      await pB.reload(); await pB.waitForSelector("#viewSong:not([hidden])");
+      await pB.click('[data-view="tab"]'); await pB.waitForSelector("#pdfPages canvas", { timeout: 20000 });
+      await cB.setOffline(false);
+
+      // Uklanjanje PDF-a na A: pjesma više nema karticu Tablatura.
+      at = "A uklanjanje";
+      await pA.click('[data-view="text"]'); await pA.click("#songMenu"); await pA.click('[data-act="edit"]');
+      assert(await pA.evaluate(() => document.getElementById("moreTab").open), "sekcija otvorena kad pjesma ima PDF");
+      await pA.click("#fTabRemove"); await pA.click("#editSave");
+      await pA.waitForSelector("#viewSong:not([hidden])");
+      assert(!(await pA.locator('[data-view="tab"]').count()), "nema Tablature nakon uklanjanja");
+      assert(await pA.locator('#songViews a[href*="youtube"]').count(), "tutorial ostaje i bez PDF-a");
+    } catch (e) { e.message = "[" + at + "] " + e.message; throw e; } finally { await cA.close(); await cB.close(); }
+  });
+
   await step("bez grešaka u konzoli tokom cijelog prolaza", async () => assert.deepStrictEqual(errors, []));
   console.log(results.join("\n"));
   await browser.close();

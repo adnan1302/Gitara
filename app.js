@@ -33,7 +33,7 @@
       chordpro: str(s.chordpro), original: str(s.original),
       notation: s.notation === "de" ? "de" : "en",
       transpose: Number.isFinite(s.transpose) ? Math.round(s.transpose) % 12 : 0,
-      tabUrl: str(s.tabUrl), tutorialUrl: str(s.tutorialUrl),
+      tabUrl: str(s.tabUrl), tabName: str(s.tabName), tutorialUrl: str(s.tutorialUrl),
       updatedAt: Number.isFinite(s.updatedAt) ? s.updatedAt : 0
     };
   }
@@ -702,14 +702,68 @@
     });
     return pdfLib;
   }
+  /* ---------- PDF fajlovi na uređaju (IndexedDB) ----------
+     Dodani PDF-ovi se čuvaju lokalno, pa rade bez interneta; sinhronizacija ih šalje u repo (folder pdf/). */
+  var PDF_MAX = 20 * 1024 * 1024, fileDb = null;
+  function openFiles() {
+    if (fileDb) return fileDb;
+    fileDb = new Promise(function (resolve, reject) {
+      if (!window.indexedDB) return reject(new Error("idb"));
+      var rq = indexedDB.open("gitara-fajlovi", 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("files", { keyPath: "path" }); };
+      rq.onsuccess = function () { resolve(rq.result); };
+      rq.onerror = function () { fileDb = null; reject(rq.error || new Error("idb")); };
+    });
+    return fileDb;
+  }
+  function fileGet(path) {
+    return openFiles().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var rq = db.transaction("files").objectStore("files").get(path);
+        rq.onsuccess = function () { resolve(rq.result || null); }; rq.onerror = function () { reject(rq.error); };
+      });
+    }).catch(function () { return null; });
+  }
+  function filePut(rec) {
+    return openFiles().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction("files", "readwrite"); tx.objectStore("files").put(rec);
+        tx.oncomplete = function () { resolve(rec); }; tx.onerror = function () { reject(tx.error); }; tx.onabort = function () { reject(tx.error); };
+      });
+    });
+  }
+  function pdfFingerprint(buf) {
+    // Isti fajl na dva uređaja dobija istu putanju, pa nema sukoba ni duplikata.
+    if (window.crypto && crypto.subtle) return crypto.subtle.digest("SHA-256", buf).then(function (h) {
+      return Array.prototype.map.call(new Uint8Array(h).subarray(0, 10), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    });
+    return Promise.resolve(uid().replace(/[^a-z0-9]/gi, ""));
+  }
+  // Lokalni PDF ili, ako ga nema, preuzimanje s GitHuba.
+  function localPdf(path) {
+    return fileGet(path).then(function (rec) {
+      if (rec) return rec.data;
+      var cfg = syncCfg(); if (!cfg) throw new Error("nema");
+      return GitaraSync.client(cfg, { api: cfg.api }).readFile(path).then(function (buf) {
+        return filePut({ path: path, data: buf, size: buf.byteLength, uploaded: true }).catch(function () {}).then(function () { return buf; });
+      });
+    });
+  }
   function loadPdf(url) {
     currentTabUrl = url; pdfDoc = null; pdfZoom = savedPdfZoom(url); renderToken++;
     $("#pdfPages").innerHTML = '<div class="pdf-loading">Učitavanje tablature…</div>';
-    loadPdfLib().then(function (lib) { return lib.getDocument(url).promise; }).then(function (doc) {
+    var own = url.indexOf("gh:") === 0;
+    var src = own ? localPdf(url.slice(3)).then(function (buf) { return { data: new Uint8Array(buf.slice(0)) }; }) : Promise.resolve(url);
+    Promise.all([loadPdfLib(), src]).then(function (r) { return r[0].getDocument(r[1]).promise; }).then(function (doc) {
       if (currentTabUrl !== url) return;
       pdfDoc = doc; return renderPdf(true);
-    }).catch(function () {
-      $("#pdfPages").innerHTML = '<div class="pdf-loading">Nisam uspio prikazati PDF. <a href="' + esc(url) + '" target="_blank" rel="noopener">Otvori ga direktno</a>.</div>';
+    }).catch(function (e) {
+      if (currentTabUrl !== url) return;
+      $("#pdfPages").innerHTML = '<div class="pdf-loading">' + (own ?
+        (e && e.message === "nema" ? "Ovaj PDF je dodan na drugom uređaju. Poveži sinhronizaciju (meni ⋯) da ga preuzmeš." :
+          e && e.kind === "notfound" ? "PDF još nije stigao na GitHub. Otvori pjesmu na uređaju gdje je dodan, pa pokušaj ponovo." :
+          e && e.kind === "offline" ? "PDF još nije preuzet na ovaj uređaj, a nema interneta." : "Nisam uspio prikazati PDF.") :
+        'Nisam uspio prikazati PDF. <a href="' + esc(url) + '" target="_blank" rel="noopener">Otvori ga direktno</a>.') + "</div>";
     });
   }
   var renderToken = 0;
@@ -755,18 +809,56 @@
 
   /* ---------- Dodavanje i uređivanje ---------- */
   var draft = null, draftIsNew = false, draftSnapshot = "", undoStack = [], editTab = "paste", hKeep = false, lastImport = "", panelChord = null;
-  function snapshot() { return JSON.stringify([draft.title, draft.artist, draft.status, draft.meta, draft.notation, draft.chordpro, draft.original]); }
+  function snapshot() { return JSON.stringify([draft.title, draft.artist, draft.status, draft.meta, draft.notation, draft.chordpro, draft.original, draft.tabUrl, draft.tutorialUrl]); }
   function isDirty() { return !!draft && snapshot() !== draftSnapshot; }
   function readFields() {
     draft.title = $("#fTitle").value.trim(); draft.artist = $("#fArtist").value.trim();
     draft.status = $("#fStatus").value; draft.meta = $("#fMeta").value.trim(); draft.notation = $("#fNotation").value;
     draft.original = $("#fOriginal").value;
+    var tut = $("#fTutorial").value.trim();
+    draft.tutorialUrl = tut && !/^https?:\/\//i.test(tut) ? "https://" + tut : tut;
     if (editTab === "text") draft.chordpro = $("#fChordpro").value.replace(/\r\n?/g, "\n");
   }
   function writeFields() {
     $("#fTitle").value = draft.title; $("#fArtist").value = draft.artist; $("#fStatus").value = draft.status;
     $("#fMeta").value = draft.meta; $("#fNotation").value = draft.notation; $("#fOriginal").value = draft.original;
+    $("#fTutorial").value = draft.tutorialUrl || "";
+    tabInfo();
+    // Polja za PDF i tutorial su otvorena kad pjesma već ima nešto od toga.
+    $("#moreTab").open = !!(draft.tabUrl || draft.tutorialUrl);
   }
+  /* PDF tablatura u uređivanju: fajl se odmah čuva na uređaju, a pjesma dobija vezu "gh:pdf/<otisak>.pdf". */
+  function tabInfo() {
+    var u = draft.tabUrl || "", txt;
+    if (!u) txt = "Nema PDF-a.";
+    else if (u.indexOf("gh:") === 0) txt = (draft.tabName || "PDF") + " · " + (syncCfg() ? "šalje se na GitHub kad sačuvaš pjesmu" : "samo na ovom uređaju dok ne povežeš sinhronizaciju");
+    else txt = "Ugrađeni PDF (" + u.split("/").pop() + ")";
+    $("#fTabInfo").textContent = txt;
+    $("#fTabRemove").hidden = !u;
+    $("#fTabPick").textContent = u ? "Zamijeni PDF" : "Izaberi PDF";
+  }
+  $("#fTabFile").addEventListener("change", function () {
+    var input = this, file = input.files && input.files[0]; input.value = "";
+    if (!file || !draft) return;
+    if (file.size > PDF_MAX) { toast("PDF je veći od 20 MB. Izaberi manji fajl."); return; }
+    file.arrayBuffer().then(function (buf) {
+      var head = new Uint8Array(buf.slice(0, 5));
+      if (String.fromCharCode.apply(null, head) !== "%PDF-") throw new Error("nije PDF");
+      return pdfFingerprint(buf).then(function (fp) {
+        var path = "pdf/" + fp + ".pdf";
+        return fileGet(path).then(function (old) {
+          return old ? old : filePut({ path: path, data: buf, name: file.name, size: buf.byteLength, uploaded: false });
+        }).then(function () { return path; });
+      });
+    }).then(function (path) {
+      if (!draft) return;
+      draft.tabUrl = "gh:" + path; draft.tabName = file.name; tabInfo();
+      toast("PDF je dodan. Sačuvaj pjesmu.");
+    }).catch(function (e) {
+      toast(e && e.message === "nije PDF" ? "Ovaj fajl nije PDF." : "PDF nije sačuvan na uređaju. Pokušaj ponovo.");
+    });
+  });
+  $("#fTabRemove").addEventListener("click", function () { if (!draft) return; draft.tabUrl = ""; draft.tabName = ""; tabInfo(); });
   function startEdit(song) {
     draftIsNew = !song;
     draft = song ? JSON.parse(JSON.stringify(song)) : { id: uid(), title: "", artist: "", status: LABELS[newStatus] ? newStatus : "progress", meta: "", chordpro: "", original: "", notation: "en", transpose: 0, tabUrl: "", tutorialUrl: "", updatedAt: 0 };
@@ -1083,7 +1175,7 @@
         });
       });
     }
-    return attempt(3).then(function () { return syncDetails(cfg); }).then(function () {
+    return attempt(3).then(function () { return syncDetails(cfg); }).then(function () { return syncFiles(cfg); }).then(function () {
       var hadError = syncInfo.error;
       syncInfo.error = null; syncInfo.offline = false; syncInfo.lastOk = Date.now();
       var c = syncStored(); c.lastOk = syncInfo.lastOk; storeSync(c);
@@ -1101,6 +1193,26 @@
       syncInfo.busy = false; refreshSyncUI();
       if (syncInfo.again) { syncInfo.again = false; scheduleSync(300); }
     });
+  }
+  /* PDF-ovi: šalje one dodane na ovom uređaju i preuzima one koji ovdje nedostaju, da rade i bez interneta. */
+  function syncFiles(cfg) {
+    var gh = GitaraSync.client(cfg, { api: cfg.api }), seen = {}, firstError = null;
+    var paths = state.songs.map(function (s) { return s.tabUrl || ""; }).filter(function (u) {
+      if (u.indexOf("gh:pdf/") !== 0 || seen[u]) return false; seen[u] = true; return true;
+    }).map(function (u) { return u.slice(3); });
+    return paths.reduce(function (chain, path) {
+      return chain.then(function () { return fileGet(path); }).then(function (rec) {
+        if (rec && rec.uploaded) return;
+        if (rec) return gh.writeFile(path, new Uint8Array(rec.data), "Gitara: PDF " + (rec.name || path)).then(function () {
+          rec.uploaded = true; return filePut(rec);
+        });
+        return gh.readFile(path).then(function (buf) {
+          return filePut({ path: path, data: buf, size: buf.byteLength, uploaded: true }).then(function () {
+            if (current && currentTabUrl === "gh:" + path && !pdfDoc && songView === "tab") loadPdf(currentTabUrl);
+          });
+        }).catch(function (e) { if (!e || e.kind !== "notfound") throw e; }); // još nije poslan s drugog uređaja
+      }).catch(function (e) { if (!firstError) firstError = e; });
+    }, Promise.resolve()).then(function () { if (firstError) throw firstError; });
   }
   function syncPanel() {
     var cfg = syncCfg(), st = syncStored();

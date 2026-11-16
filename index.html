@@ -123,6 +123,11 @@ body.dragging .board{scroll-snap-type:none}
 .sheet{font-family:var(--read);font-size:var(--fs);font-weight:350;font-style:normal;line-height:1.5;padding:22px 0 calc(84px + env(safe-area-inset-bottom));overflow-x:clip}
 /* Blok teksta je centriran na ekranu; redovi ostaju poravnati lijevo da akordi stoje iznad slogova. */
 #songSheet{width:fit-content;min-width:min(100%,320px);max-width:100%;margin-left:auto;margin-right:auto}
+.pdf-field{display:flex;flex-direction:column;gap:6px}
+.pdf-field .hint{margin:0}
+.pdf-label{font-size:14px;color:var(--muted)}
+.pdf-field .btn{font-size:15px;color:var(--text);cursor:pointer}
+.file-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .blk{margin-bottom:1.1em}
 .sheet.lab .blk{display:grid;grid-template-columns:96px minmax(0,1fr)}
 .blk>.sec{font:600 11px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);padding-top:.5em}
@@ -172,7 +177,7 @@ body.immersive .pdf-wrap.viewer-fullscreen .pdf-toolbar{display:flex}
 .form-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));margin:14px 0}
 .form-grid label{display:grid;gap:4px;color:var(--muted);font-size:13px}
 .form-grid .wide{grid-column:1/-1}
-input[type=text],input[type=password],select.field,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;min-height:44px;width:100%;font-size:16px}
+input[type=text],input[type=password],input[type=url],select.field,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;min-height:44px;width:100%;font-size:16px}
 textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto;min-height:44vh;resize:vertical;tab-size:8}
 .more{border-bottom:1px solid var(--line);margin:0 0 4px}
 .more summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:14px}
@@ -303,6 +308,14 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
         <label>Status<select id="fStatus" class="field"></select></label>
         <label>Napomena (tonalitet, capo, štim)<input id="fMeta" type="text" autocomplete="off" placeholder="npr. Am · capo 2"></label>
         <label class="wide">Notacija akorda (važno za transpoziciju)<select id="fNotation" class="field"><option value="en">Engleska: B je ton H, Bb je sniženo</option><option value="de">Njemačka: H je ton H, B je sniženo (Bb)</option></select></label>
+      </div>
+    </details>
+    <details class="more" id="moreTab">
+      <summary>Tablatura (PDF) i tutorial</summary>
+      <div class="form-grid">
+        <div class="wide pdf-field"><span class="pdf-label">PDF tablatura</span><span id="fTabInfo" class="hint"></span>
+          <div class="row"><label class="btn outline" id="fTabPick" for="fTabFile">Izaberi PDF</label><input id="fTabFile" class="file-input" type="file" accept="application/pdf,.pdf"><button class="btn" id="fTabRemove" type="button">Ukloni PDF</button></div></div>
+        <label class="wide">Link za tutorial<input id="fTutorial" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="npr. https://www.youtube.com/watch?v=…"></label>
       </div>
     </details>
     <div class="tabs" role="tablist"><button class="btn" data-tab="paste" type="button">1. Zalijepi</button><button class="btn" data-tab="preview" type="button">2. Pregled i akordi</button><button class="btn" data-tab="text" type="button">Tekst (ChordPro)</button></div>

@@ -47,8 +47,9 @@
   function sortKeys(o) { var r = {}; Object.keys(o || {}).sort().forEach(function (k) { r[k] = o[k]; }); return r; }
 
   /* UTF-8 <-> base64 (GitHub vraća i prima sadržaj fajla kao base64). */
-  function toB64(text) {
-    var bytes = new TextEncoder().encode(text), bin = "";
+  function toB64(text) { return bytesToB64(new TextEncoder().encode(text)); }
+  function bytesToB64(bytes) {
+    var bin = "";
     for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     return btoa(bin);
   }
@@ -67,8 +68,8 @@
     var api = opts.api || "https://api.github.com", fetchFn = opts.fetch || (typeof fetch === "function" ? fetch.bind(null) : null);
     var path = cfg.path || "pjesme.json";
     var repoUrl = api + "/repos/" + encodeURIComponent(cfg.owner) + "/" + encodeURIComponent(cfg.repo);
-    function req(method, url, body) {
-      var headers = { Accept: "application/vnd.github+json", Authorization: "Bearer " + cfg.token };
+    function req(method, url, body, accept) {
+      var headers = { Accept: accept || "application/vnd.github+json", Authorization: "Bearer " + cfg.token };
       if (body) headers["Content-Type"] = "application/json";
       return fetchFn(url, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" })
         .catch(function () { throw new SyncError("offline", "Nema veze s GitHubom."); })
@@ -121,9 +122,31 @@
           return json(res).then(function (r) { return r && r.content && r.content.sha; });
         });
       },
+      /* Binarni fajl (PDF) po putanji u repou. Vraća ArrayBuffer; baca "notfound" ako ga nema. */
+      readFile: function (filePath) {
+        return req("GET", repoUrl + "/contents/" + encodeURI(filePath), null, "application/vnd.github.raw+json").then(function (res) {
+          if (res.status === 404) throw new SyncError("notfound", "Fajl " + filePath + " još nije na GitHubu.", 404);
+          if (!res.ok) throw new SyncError("server", "GitHub greška " + res.status + " pri preuzimanju fajla.", res.status);
+          return res.arrayBuffer();
+        });
+      },
+      /* Upisuje binarni fajl ako ga još nema. Putanja sadrži otisak sadržaja, pa postojeći fajl je isti fajl. */
+      writeFile: function (filePath, bytes, message) {
+        var url = repoUrl + "/contents/" + encodeURI(filePath);
+        return req("GET", url).then(function (res) {
+          if (res.ok) return false;
+          if (res.status !== 404) throw new SyncError("server", "GitHub greška " + res.status + " pri provjeri fajla.", res.status);
+          return req("PUT", url, { message: message, content: bytesToB64(bytes) }).then(function (put) {
+            if (put.status === 422) return false; // u međuvremenu ga je upisao drugi uređaj
+            if (put.status === 404) throw new SyncError("notfound", "Repo nije pronađen ili token nema pravo pisanja.", 404);
+            if (!put.ok) throw new SyncError("server", "GitHub greška " + put.status + " pri slanju fajla.", put.status);
+            return true;
+          });
+        });
+      },
       historyUrl: "https://github.com/" + encodeURIComponent(cfg.owner) + "/" + encodeURIComponent(cfg.repo) + "/commits/HEAD/" + encodeURI(path)
     };
   }
 
-  return { merge: merge, same: same, client: client, toB64: toB64, fromB64: fromB64, SyncError: SyncError };
+  return { merge: merge, same: same, client: client, toB64: toB64, fromB64: fromB64, bytesToB64: bytesToB64, SyncError: SyncError };
 });
