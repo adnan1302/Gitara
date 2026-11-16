@@ -172,6 +172,51 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     assert(sync && Object.values(sync).includes(6));
   });
 
+  await step("oznake sadržaja, filter i komentari (nacrt, dodavanje, brisanje)", async () => {
+    const name = "Da, to sam ja";
+    const card = () => page.locator(".cd", { hasText: name });
+    await page.goto(BASE); await page.click("#tabWork");
+    // Oznaka iz pjesme: crvena tačka na kartici, a status pjesme se ne mijenja.
+    await openSong(name);
+    const statusBefore = await page.evaluate(n => JSON.parse(localStorage.getItem("gitara-v2")).songs.find(x => x.title === n).status, name);
+    await page.click("#songLabel"); await page.click('#panel [data-act="content-label"][data-label="red"]');
+    await page.waitForSelector("#panel", { state: "hidden" });
+    await page.click("#songBack"); await page.waitForSelector("#viewList:not([hidden])"); await page.click("#tabWork");
+    assert(await card().locator(".content-dot.red").count(), "crvena oznaka na kartici");
+    assert.strictEqual(await page.evaluate(n => JSON.parse(localStorage.getItem("gitara-v2")).songs.find(x => x.title === n).status, name), statusBefore, "oznaka ne mijenja status");
+    // Filter: crvena prikazuje samo tu pjesmu, "bez oznake" je skriva.
+    await page.selectOption("#contentFilter", "red");
+    assert.deepStrictEqual(await page.locator(".cd .song-title").allTextContents(), [name]);
+    await page.selectOption("#contentFilter", "none");
+    assert.strictEqual(await card().count(), 0, "bez oznake ne prikazuje označenu pjesmu");
+    await page.selectOption("#contentFilter", "all");
+    assert(await card().count(), "sve oznake vraća pjesmu");
+    // Komentari: nacrt preživi ponovno učitavanje, dodani komentar se broji, brisanje ga uklanja.
+    await openSong(name);
+    await page.click("#commentsToggle"); await page.waitForSelector("#commentsPanel:not([hidden])");
+    await page.fill("#commentText", "Provjeriti refren");
+    await page.reload(); await page.waitForSelector("#viewSong:not([hidden])");
+    await page.click("#commentsToggle");
+    assert.strictEqual(await page.inputValue("#commentText"), "Provjeriti refren", "nacrt je sačuvan");
+    await page.click('#commentForm button[type="submit"]');
+    await page.waitForFunction(() => document.querySelectorAll("#commentsList .comment").length === 1);
+    assert.strictEqual(await page.inputValue("#commentText"), "", "polje se isprazni nakon dodavanja");
+    assert.strictEqual((await page.textContent("#commentsCount")).trim(), "1");
+    await page.click("#commentsClose");
+    await page.click("#songBack"); await page.waitForSelector("#viewList:not([hidden])"); await page.click("#tabWork");
+    assert(await card().locator(".comment-mark").count(), "ikona komentara na kartici");
+    await openSong(name); await page.click("#commentsToggle");
+    await page.click("#commentsList [data-delete-comment]");
+    await page.waitForFunction(() => !document.querySelectorAll("#commentsList .comment").length);
+    assert.strictEqual((await page.textContent("#commentsCount")).trim(), "");
+    await page.click("#commentsClose");
+    // Uklanjanje oznake vraća karticu u prvobitno stanje.
+    await page.click("#songLabel"); await page.click('#panel [data-act="content-label"][data-label=""]');
+    await page.waitForSelector("#panel", { state: "hidden" });
+    await page.click("#songBack"); await page.waitForSelector("#viewList:not([hidden])"); await page.click("#tabWork");
+    assert.strictEqual(await card().locator(".content-dot, .comment-mark").count(), 0, "bez oznake i bez ikone komentara");
+  });
+
   await step("izvoz i uvoz", async () => {
     await page.goto(BASE);
     await page.click("#btnMenu");
@@ -392,6 +437,12 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
       gh.tokens.add(req.headers()["authorization"]);
       if (gh.fail) return send(r, gh.fail, { message: "fail" });
       if (url.pathname === "/repos/test/gitara-podaci") return send(r, 200, { private: true });
+      // Oznake i komentari su u zasebnom fajlu; ovdje ih samo čuvamo, provjeravaju se u testovima dopuna.
+      if (url.pathname === "/repos/test/gitara-podaci/contents/oznake-komentari.json") {
+        if (method === "GET") return gh.details ? send(r, 200, { sha: gh.details.sha, encoding: "base64", content: gh.details.content }) : send(r, 404, { message: "Not Found" });
+        const db = JSON.parse(req.postData()); gh.details = { content: db.content, sha: "d" + Date.now() };
+        return send(r, 200, { content: { sha: gh.details.sha } });
+      }
       if (url.pathname !== "/repos/test/gitara-podaci/contents/pjesme.json") return send(r, 404, { message: "Not Found" });
       if (method === "GET") return gh.file ? send(r, 200, { sha: gh.sha, encoding: "base64", content: b64(gh.file) }) : send(r, 404, { message: "Not Found" });
       const body = JSON.parse(req.postData());
