@@ -321,6 +321,20 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.waitForSelector("canvas.pdf-page");
     assert.strictEqual(await page.locator("#zoomLabel").innerText(), "100%", "Širina zamjenjuje prethodni zoom");
   });
+  await step("PDF cijeli ekran: dugme za listanje je iznad PDF-a i pomiče stranice", async () => {
+    await page.goto(BASE); await openSong("All of Me"); await page.click('[data-view="tab"]');
+    await page.waitForSelector("#pdfPages canvas");
+    await page.click("#fullscreenBtn");
+    const top = await page.evaluate(() => { const r = document.getElementById("asToggle").getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!(e && e.closest("#autoScroll")); });
+    assert(top, "dugme za listanje je prekriveno PDF-om u cijelom ekranu");
+    await page.click("#asToggle");
+    const y0 = await page.evaluate(() => document.getElementById("pdfPages").scrollTop);
+    await page.waitForTimeout(1500);
+    const y1 = await page.evaluate(() => document.getElementById("pdfPages").scrollTop);
+    assert(y1 > y0, "PDF se ne pomjera: " + y0 + " -> " + y1);
+    await page.click("#asToggle"); await page.click("#fullscreenBtn");
+  });
+
   await step("prikaz na širinama telefona i iPada bez prelijevanja", async () => {
     for (const [name, size] of Object.entries(SIZES)) {
       await page.setViewportSize(size);

@@ -133,9 +133,9 @@ body.dragging .board{scroll-snap-type:none}
 .sg.ov>.c{width:0;padding-right:0;overflow:visible}
 .tabpre{font:500 .78em/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto;border:1px solid var(--line);border-radius:6px;padding:10px;margin:.4em 0;-webkit-overflow-scrolling:touch}
 .hint{color:var(--muted);font-size:14px;margin:10px 0;font-family:var(--sans)}
-#showControls{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;background:var(--surface);border-color:var(--line);color:var(--text)}
+#showControls{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:55;background:var(--surface);border-color:var(--line);color:var(--text)}
 /* Automatsko listanje: mala kontrola dolje na sredini; brzina se vidi samo dok lista. */
-.autoscroll{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;display:flex;align-items:center;gap:2px;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--line);border-radius:12px;padding:2px;box-shadow:0 2px 10px var(--shadow,#0002)}
+.autoscroll{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:55;display:flex;align-items:center;gap:2px;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--line);border-radius:12px;padding:2px;box-shadow:0 2px 10px var(--shadow,#0002)}
 .autoscroll .btn{min-width:44px;padding:0 10px}
 .autoscroll svg{width:20px;height:20px;fill:currentColor}
 .autoscroll .as-pause,.autoscroll.on .as-play{display:none}
