@@ -114,6 +114,8 @@ body.dragging .board{scroll-snap-type:none}
 .views .btn{color:var(--muted)}
 .views .btn.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
 .sheet{font-family:var(--read);font-size:var(--fs);font-weight:350;font-style:normal;line-height:1.5;padding:22px 0 60vh;overflow-x:clip}
+/* Blok teksta je centriran na ekranu; redovi ostaju poravnati lijevo da akordi stoje iznad slogova. */
+#songSheet{width:fit-content;min-width:min(100%,320px);max-width:100%;margin-left:auto;margin-right:auto}
 .blk{margin-bottom:1.1em}
 .sheet.lab .blk{display:grid;grid-template-columns:96px minmax(0,1fr)}
 .blk>.sec{font:600 11px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);padding-top:.5em}
