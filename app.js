@@ -404,10 +404,9 @@
   function renderComments() {
     if (!current) return;
     var list = details(current.id).comments.filter(function (c) { return !c.deleted; }).sort(function (a, b) { return b.createdAt - a.createdAt || a.id.localeCompare(b.id); });
-    $("#commentsSong").textContent = current.title;
     $("#commentsList").innerHTML = list.length ? list.map(function (c) {
       return '<article class="comment"><p>' + esc(c.text) + '</p><div class="comment-meta"><time>' + esc(commentDate(c.createdAt)) + '</time><button type="button" class="btn" data-delete-comment="' + esc(c.id) + '" aria-label="Obriši komentar">Obriši</button></div></article>';
-    }).join("") : '<p class="hint">Ovdje zapiši šta želiš popraviti ili uvježbati.</p>';
+    }).join("") : "";
   }
   function closeComments(focus) {
     $("#commentsPanel").hidden = true;

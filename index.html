@@ -226,10 +226,12 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 .label-heading{margin-top:16px!important}.comments-toggle{position:relative}.comments-toggle svg{width:21px;height:21px}
 #commentsCount{position:absolute;top:0;right:0;min-width:14px;font-size:10px;color:var(--accent);background:var(--bg);border-radius:8px}
 #commentsCount:empty{display:none}
-.comments-panel{position:fixed;right:16px;top:76px;bottom:auto;max-height:calc(100dvh - 96px);z-index:59;width:min(360px,calc(100vw - 32px));padding:18px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 32px var(--shadow);overflow:auto;overscroll-behavior:contain}
-.comments-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.comments-head h3{font:600 17px var(--sans);margin:0}.comments-head .hint{margin:4px 0 16px}
-#commentForm label{font-size:13px}#commentText{font:400 15px/1.5 var(--sans);resize:vertical;min-height:90px;margin-top:6px}
-.comment-submit{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 20px}.comment-submit .hint{font-size:11px;margin:0}
+.comments-panel{position:fixed;right:16px;top:76px;bottom:auto;max-height:calc(100dvh - 96px);z-index:59;width:min(360px,calc(100vw - 32px));padding:40px 16px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 32px var(--shadow);overflow:auto;overscroll-behavior:contain}
+.comments-panel #commentsClose{position:absolute;top:6px;right:8px;min-width:28px;width:28px;min-height:28px;height:28px;font-size:18px;border-radius:6px}
+#commentText{font:400 15px/1.5 var(--sans);resize:vertical;min-height:90px;margin:0}
+.comment-submit{display:flex;justify-content:flex-end;margin:8px 0 0}
+.comment-submit .btn{min-height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+#commentsList:not(:empty){margin-top:16px}
 .comment{border-top:1px solid var(--line);padding:14px 0}.comment p{font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 6px}.comment-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}.comment-meta .btn{font-size:11px;color:var(--muted);padding:0 6px}
 @media(max-width:699px){.comments-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-height:65dvh;border-radius:14px 14px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}#viewSong .bar-in{gap:2px}}
 </style>
@@ -323,9 +325,9 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 </main>
 
 <div id="backdrop" class="backdrop" hidden></div>
-<aside id="commentsPanel" class="comments-panel" role="dialog" aria-labelledby="commentsHeading" hidden>
-  <div class="comments-head"><div><h3 id="commentsHeading">Komentari</h3><p id="commentsSong" class="hint"></p></div><button id="commentsClose" class="btn icon" type="button" aria-label="Zatvori komentare">×</button></div>
-  <form id="commentForm"><label for="commentText">Novi komentar</label><textarea id="commentText" rows="3" maxlength="10000" placeholder="Šta treba popraviti ili uvježbati?"></textarea><div class="comment-submit"><span class="hint">Nacrt se čuva na ovom uređaju.</span><button type="submit" class="btn primary">Dodaj</button></div></form>
+<aside id="commentsPanel" class="comments-panel" role="dialog" aria-label="Komentari" hidden>
+  <button id="commentsClose" class="btn icon" type="button" aria-label="Zatvori komentare">×</button>
+  <form id="commentForm"><textarea id="commentText" rows="3" maxlength="10000" aria-label="Tekst komentara"></textarea><div class="comment-submit"><button type="submit" class="btn primary">Dodaj</button></div></form>
   <div id="commentsList" aria-live="polite"></div>
 </aside>
 <div id="panel" class="sheet-panel" role="dialog" aria-modal="true" hidden><div id="panelBody"></div></div>
