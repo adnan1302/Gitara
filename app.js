@@ -22,7 +22,7 @@
   function str(v) { return typeof v === "string" ? v : ""; }
 
   /* ---------- Pohrana ---------- */
-  var state = { v: 2, songs: [], deletedSeeds: [], settings: {}, removed: {}, orderAt: 0 };
+  var state = { v: 2, songs: [], deletedSeeds: [], settings: {}, songDetails: [], removed: {}, orderAt: 0 };
   var startupNotice = "";
 
   function normalizeSong(s) {
@@ -58,6 +58,7 @@
     }
     if (data) {
       state.songs = data.songs.map(normalizeSong).filter(Boolean);
+      state.songDetails = GitaraDetails.merge([], data.songDetails);
       state.deletedSeeds = Array.isArray(data.deletedSeeds) ? data.deletedSeeds.filter(function (x) { return typeof x === "string"; }) : [];
       state.settings = data.settings && typeof data.settings === "object" ? data.settings : {};
       state.removed = data.removed && typeof data.removed === "object" && !Array.isArray(data.removed) ? data.removed : {};
@@ -182,18 +183,20 @@
   function edge(id) { var h = 0; for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return EDGE[h % EDGE.length]; }
   function cardHTML(s, withStatus) {
     var meta = [withStatus ? LABELS[s.status] : "", s.meta, s.tabUrl ? "PDF" : ""].filter(Boolean).join(" · ");
-    return '<div class="song cd" role="link" tabindex="0" data-id="' + esc(s.id) + '" style="--k:' + edge(s.id) + '"><span class="cd-main"><span class="song-title">' + esc(s.title) +
+    return '<div class="song cd" role="link" tabindex="0" data-id="' + esc(s.id) + '" style="--k:' + edge(s.id) + '"><span class="cd-main"><span class="song-title">' + labelDot(details(s.id).label) + esc(s.title) +
       "</span>" + (s.artist ? "<small>" + esc(s.artist) + "</small>" : "") + (meta ? '<span class="mt">' + esc(meta) + "</span>" : "") +
       '</span><button type="button" class="grip" aria-label="Premjesti pjesmu ' + esc(s.title) + '">⋮⋮</button></div>';
   }
   function renderList() {
     var q = fold($("#search").value.trim());
-    var done = state.songs.filter(function (s) { return s.status === "done"; });
+    var filter = $("#contentFilter").value;
+    var eligible = state.songs.filter(function (s) { var label = details(s.id).label; return filter === "all" || (filter === "none" ? !label : label === filter); });
+    var done = eligible.filter(function (s) { return s.status === "done"; });
     $("#tabWork").classList.toggle("on", !q && tab === "work"); $("#tabDone").classList.toggle("on", !q && tab === "done");
     var board = $("#board"), rows = $("#songs"), empty = $("#empty");
     if (q) {
       // Pretraga ide kroz sve pjesme, bez obzira na karticu i kolonu.
-      var hits = state.songs.filter(function (s) {
+      var hits = eligible.filter(function (s) {
         var hay = fold(s.title + " " + s.artist + " " + s.meta + " " + s.chordpro.replace(/\[[^\]]*\]/g, ""));
         return q.split(/\s+/).every(function (word) { return hay.indexOf(word) >= 0; });
       });
@@ -203,11 +206,13 @@
     } else if (tab === "done") {
       board.hidden = true; board.innerHTML = ""; rows.hidden = false;
       rows.innerHTML = done.map(function (s) { return cardHTML(s, false); }).join("");
-      empty.hidden = done.length > 0; empty.textContent = "Kolekcija je još prazna. Premjesti pjesmu ovdje kad je naučiš.";
+      empty.hidden = done.length > 0; empty.textContent = filter === "all" ? "Kolekcija je još prazna. Premjesti pjesmu ovdje kad je naučiš." : "Nema pjesama s ovom oznakom u Kolekciji.";
     } else {
       rows.hidden = true; rows.innerHTML = ""; empty.hidden = true; board.hidden = false;
+      empty.hidden = filter === "all" || eligible.some(function (s) { return s.status !== "done"; });
+      empty.textContent = "Nema pjesama s ovom oznakom u radu.";
       board.innerHTML = COLUMNS.map(function (st) {
-        var list = state.songs.filter(function (s) { return s.status === st; });
+        var list = eligible.filter(function (s) { return s.status === st; });
         return '<section class="col" data-status="' + st + '"><div class="colh"><b>' + LABELS[st] + "</b><span>" + list.length +
           '</span><button type="button" class="btn" data-new="' + st + '" aria-label="Dodaj pjesmu u kolonu ' + LABELS[st] + '">+</button></div><div class="cards">' +
           list.map(function (s) { return cardHTML(s, false); }).join("") + "</div></section>";
@@ -239,7 +244,7 @@
     menuSong = song;
     openPanel("<h3>" + esc(song.title) + '</h3><p class="hint">Premjesti u:</p><div class="menu">' + Object.keys(LABELS).map(function (k) {
       return '<button type="button" class="btn' + (k === song.status ? " active" : "") + '" data-act="move" data-status="' + k + '"' + (k === song.status ? " disabled" : "") + ">" + LABELS[k] + (k === song.status ? " (sada)" : "") + "</button>";
-    }).join("") + '<button type="button" class="btn" data-act="close">Zatvori</button></div>');
+    }).join("") + "</div>" + labelOptions(song) + '<button type="button" class="btn" data-act="close">Zatvori</button>');
   }
   var drag = null, dragTimer = 0, skipClick = false;
   function dragStart() {
@@ -327,6 +332,7 @@
     if (e.key === "Enter" && e.target.classList.contains("cd")) location.hash = "#/p/" + encodeURIComponent(e.target.dataset.id);
   });
   $("#search").addEventListener("input", renderList);
+  $("#contentFilter").addEventListener("change", renderList);
   $("#btnNew").addEventListener("click", function () { newStatus = ""; location.hash = "#/nova"; });
 
   function applyTheme() {
@@ -355,12 +361,111 @@
         "Pjesme se čuvaju samo u ovom pregledniku na ovom uređaju. Poveži GitHub ili ih povremeno izvezi kao rezervnu kopiju.") + "</p>" +
       '<div class="menu"><button type="button" class="btn" data-act="close">Zatvori</button></div>');
   });
+  /* ---------- Oznake sadržaja i komentari (nezavisni od statusa učenja) ---------- */
+  var CONTENT_LABELS = { red: "Nedostaje / nije dobro", yellow: "Treba doradu", "": "Bez oznake" };
+  function details(id) { return state.songDetails.find(function (d) { return d.id === id; }) || { id: id, label: "", labelAt: 0, comments: [] }; }
+  function labelDot(label, decorative) {
+    return label ? '<span class="content-dot ' + label + '" ' + (decorative ? 'aria-hidden="true"' : 'role="img" aria-label="' + CONTENT_LABELS[label] + '"') + ' title="' + CONTENT_LABELS[label] + '"></span>' : "";
+  }
+  function labelOptions(song) {
+    var selected = details(song.id).label;
+    return '<h3 class="label-heading">Oznaka sadržaja</h3><p class="hint">Za tekst, akorde ili tablaturu. Ne mijenja status pjesme.</p><div class="menu">' + ["red", "yellow", ""].map(function (label) {
+      return '<button type="button" class="btn" data-act="content-label" data-label="' + label + '" aria-pressed="' + (selected === label) + '">' + labelDot(label, true) + CONTENT_LABELS[label] + (selected === label ? " ✓" : "") + '</button>';
+    }).join("") + "</div>";
+  }
+  function commitDetails(d) {
+    var before = state.songDetails;
+    state.songDetails = GitaraDetails.merge(state.songDetails, [d]);
+    if (!save()) { state.songDetails = before; return false; }
+    updateDetailsUI(); return true;
+  }
+  function setContentLabel(label) {
+    if (!menuSong || !Object.prototype.hasOwnProperty.call(CONTENT_LABELS, label)) return;
+    var d = JSON.parse(JSON.stringify(details(menuSong.id)));
+    d.label = label; d.labelAt = Math.max(Date.now(), d.labelAt + 1);
+    if (commitDetails(d)) { closePanel(); renderList(); toast(label ? "Oznaka je sačuvana." : "Oznaka je uklonjena."); }
+  }
+  function updateDetailsUI() {
+    if (!current) return;
+    var d = details(current.id), count = d.comments.filter(function (c) { return !c.deleted; }).length;
+    $("#songLabel").innerHTML = labelDot(d.label) || '<span aria-hidden="true">⚑</span>';
+    $("#songLabel").setAttribute("aria-label", "Oznaka sadržaja: " + CONTENT_LABELS[d.label]);
+    $("#commentsCount").textContent = count || "";
+    $("#commentsToggle").setAttribute("aria-label", "Komentari" + (count ? " (" + count + ")" : ""));
+    if (!$("#commentsPanel").hidden) renderComments();
+  }
+  $("#songLabel").addEventListener("click", function () { menuSong = current; openPanel(labelOptions(current) + '<button type="button" class="btn" data-act="close">Zatvori</button>'); });
+  function commentDate(t) {
+    var d = new Date(t); function pad(n) { return ("0" + n).slice(-2); }
+    return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear() + ". · " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  function renderComments() {
+    if (!current) return;
+    var list = details(current.id).comments.filter(function (c) { return !c.deleted; }).sort(function (a, b) { return b.createdAt - a.createdAt || a.id.localeCompare(b.id); });
+    $("#commentsSong").textContent = current.title;
+    $("#commentsList").innerHTML = list.length ? list.map(function (c) {
+      return '<article class="comment"><p>' + esc(c.text) + '</p><div class="comment-meta"><time>' + esc(commentDate(c.createdAt)) + '</time><button type="button" class="btn" data-delete-comment="' + esc(c.id) + '" aria-label="Obriši komentar">Obriši</button></div></article>';
+    }).join("") : '<p class="hint">Ovdje zapiši šta želiš popraviti ili uvježbati.</p>';
+  }
+  function closeComments(focus) {
+    $("#commentsPanel").hidden = true;
+    $("#commentsToggle").setAttribute("aria-expanded", "false");
+    if (focus) $("#commentsToggle").focus();
+  }
+  $("#commentsToggle").addEventListener("click", function () {
+    if (!$("#commentsPanel").hidden) { closeComments(true); return; }
+    asStop(); closePanel(); $("#commentsPanel").hidden = false;
+    $("#commentsToggle").setAttribute("aria-expanded", "true");
+    $("#commentText").value = (state.settings.commentDrafts || {})[current.id] || "";
+    renderComments(); $("#commentsClose").focus();
+  });
+  $("#commentsClose").addEventListener("click", function () { closeComments(true); });
+  $("#commentText").addEventListener("input", function () {
+    if (!current) return;
+    if (!state.settings.commentDrafts) state.settings.commentDrafts = {};
+    state.settings.commentDrafts[current.id] = this.value; save(true);
+  });
+  $("#commentForm").addEventListener("submit", function (e) {
+    e.preventDefault(); if (!current) return;
+    var text = $("#commentText").value.trim(); if (!text) { $("#commentText").focus(); return; }
+    var d = JSON.parse(JSON.stringify(details(current.id))), now = Date.now();
+    d.comments.push({ id: uid(), text: text, createdAt: now, updatedAt: now, deleted: false });
+    if (commitDetails(d)) { $("#commentText").value = ""; if (state.settings.commentDrafts) delete state.settings.commentDrafts[current.id]; save(true); $("#commentText").focus(); }
+  });
+  $("#commentsList").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-delete-comment]"); if (!b || !current) return;
+    var d = JSON.parse(JSON.stringify(details(current.id))), c = d.comments.find(function (x) { return x.id === b.dataset.deleteComment; });
+    if (c) { c.deleted = true; c.updatedAt = Math.max(Date.now(), c.updatedAt + 1); commitDetails(d); }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { if (!$("#commentsPanel").hidden) closeComments(true); else closePanel(); } });
+
+  // Poseban fajl štiti nove dopune od starije produkcijske aplikacije.
+  function syncDetails(cfg) {
+    var gh = GitaraSync.client(Object.assign({}, cfg, { path: "oznake-komentari.json" }), { api: cfg.api });
+    function attempt(tries) {
+      return gh.read().then(function (r) {
+        if (r.doc && r.doc.app !== "gitara-details") throw new Error("Fajl oznake-komentari.json ima drugi format; nije promijenjen.");
+        var merged = GitaraDetails.merge(state.songDetails, r.doc && r.doc.songs);
+        state.songDetails = merged; if (!save(true)) throw new Error("Dopune nisu sačuvane na uređaju.");
+        updateDetailsUI();
+        if (r.doc && JSON.stringify(merged) === JSON.stringify(GitaraDetails.merge([], r.doc.songs))) return;
+        if (!r.doc && !merged.length) return;
+        return gh.write({ app: "gitara-details", v: 1, songs: merged }, r.sha, "Gitara: oznake i komentari").catch(function (e) {
+          if (e.kind === "conflict" && tries > 0) return attempt(tries - 1);
+          throw e;
+        });
+      });
+    }
+    return attempt(3);
+  }
+
   function exportAll() {
     var d = new Date(), stamp = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
     state.settings.lastExport = Date.now(); save(true);
-    deliver("gitara-pjesme-" + stamp + ".json", JSON.stringify({ app: "gitara", v: 2, exportedAt: d.toISOString(), songs: state.songs }, null, 2), "application/json");
+    deliver("gitara-pjesme-" + stamp + ".json", JSON.stringify({ app: "gitara", v: 2, exportedAt: d.toISOString(), songs: state.songs, songDetails: state.songDetails }, null, 2), "application/json");
   }
-  function mergeSongs(list) {
+  function mergeSongs(list, extra) {
+    state.songDetails = GitaraDetails.merge(state.songDetails, extra);
     var added = 0, updated = 0, skipped = 0;
     list.forEach(function (rawSong) {
       var s = normalizeSong(rawSong);
@@ -385,7 +490,7 @@
       var text = String(reader.result || ""), data = null;
       try { data = JSON.parse(text); } catch (e) { data = null; }
       var list = Array.isArray(data) ? data : data && Array.isArray(data.songs) ? data.songs : null;
-      if (list) { mergeSongs(list); return; }
+      if (list) { mergeSongs(list, data && data.songDetails); return; }
       if (data !== null && /\.json$/i.test(file.name)) { toast("Ovaj JSON ne sadrži listu pjesama."); return; }
       pendingImport = { text: text, name: file.name.replace(/\.[^.]+$/, "") };
       if (location.hash === "#/nova") route(); else location.hash = "#/nova";
@@ -409,6 +514,7 @@
   }
   function renderSong() {
     var s = current;
+    updateDetailsUI();
     $("#songTitle").textContent = s.title;
     $("#songArtist").textContent = s.artist; $("#songArtist").hidden = !s.artist;
     $("#songMeta").textContent = [LABELS[s.status], s.meta].filter(Boolean).join(" · ");
@@ -498,6 +604,7 @@
   $("#viewPanelClose").addEventListener("click", closePanel);
   $("#songMenu").addEventListener("click", function () {
     openPanel('<div class="menu"><button type="button" class="btn" data-act="edit">Uredi pjesmu</button>' +
+      '<button type="button" class="btn" data-act="label-menu">Oznaka sadržaja</button>' +
       '<button type="button" class="btn" data-act="export-song">Izvezi pjesmu (.cho)</button>' +
       '<button type="button" class="btn danger" data-act="delete-song">Obriši pjesmu</button>' +
       '<button type="button" class="btn" data-act="close">Zatvori</button></div>');
@@ -818,6 +925,8 @@
     if (!act) return;
     var a = act.dataset.act;
     if (a === "close") closePanel();
+    else if (a === "label-menu") { menuSong = current; openPanel(labelOptions(current) + '<button type="button" class="btn" data-act="close">Zatvori</button>'); }
+    else if (a === "content-label") setContentLabel(act.dataset.label);
     else if (a === "set") { var v = $("#chordInput").value; if (v.trim()) applyChord(v); else toast("Upiši akord ili izaberi jedan od ponuđenih."); }
     else if (a === "remove") removeChord();
     else if (a === "export") { closePanel(); exportAll(); }
@@ -878,7 +987,7 @@
       draft = null;
     }
     leaveOk = false;
-    closePanel();
+    closePanel(); closeComments(false);
     if (h === "#/nova") {
       if (!draft) startEdit(null);
       editHash = h; releaseWake(); setImmersive(false); show("viewEdit"); return;
@@ -971,7 +1080,7 @@
         });
       });
     }
-    return attempt(3).then(function () {
+    return attempt(3).then(function () { return syncDetails(cfg); }).then(function () {
       var hadError = syncInfo.error;
       syncInfo.error = null; syncInfo.offline = false; syncInfo.lastOk = Date.now();
       var c = syncStored(); c.lastOk = syncInfo.lastOk; storeSync(c);
@@ -998,7 +1107,7 @@
         '<div class="setting"><span>Repo</span><span>' + esc(cfg.owner + "/" + cfg.repo) + "</span></div>" +
         '<div class="setting"><span>Stanje</span><span id="syncStatus">' + esc(syncLabel()) + "</span></div>" +
         (syncInfo.error ? '<p class="hint">' + esc(syncInfo.error) + "</p>" : "") +
-        '<p class="hint">Izmjene se šalju same, par sekundi nakon snimanja, i kad se aplikacija ponovo otvori. Svaka verzija ostaje u historiji repoa.</p>' +
+        '<p class="hint">Izmjene se šalju same, par sekundi nakon snimanja, i kad se aplikacija ponovo otvori. Svaka verzija ostaje u historiji repoa. Oznake i komentari šalju se odvojeno, pa ih starija verzija aplikacije ne prepisuje.</p>' +
         '<div class="menu"><button type="button" class="btn" data-act="sync-now">Sinhronizuj sada</button>' +
         '<a class="btn" href="' + esc(gh.historyUrl) + '" target="_blank" rel="noopener">Historija na GitHubu ↗</a>' +
         '<button type="button" class="btn danger" data-act="sync-off">Prekini vezu na ovom uređaju</button>' +
