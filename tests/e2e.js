@@ -19,7 +19,9 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", e => errors.push(String(e)));
-  page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+  // Odgovori lažnog GitHuba (404, 401, 409) su namjerni, pa ih ne brojimo kao greške.
+  const isGh = m => (m.location().url || "").startsWith("https://api.github.com/");
+  page.on("console", m => { if (m.type() === "error" && !isGh(m)) errors.push(m.text()); });
   page.on("dialog", d => d.accept());
   // Nijedan zahtjev ne smije ići van vlastite adrese (PDF.js više nije na CDN-u).
   const external = [];
@@ -319,7 +321,7 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.goto(BASE);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(async () => {
-      const required = ["index.html", "app.js", "chords.js", "seeds.js", "fonts/manrope-latin-variable.woff2", "fonts/manrope-latin-ext-variable.woff2", "fonts/source-sans-3-latin-variable.woff2", "fonts/source-sans-3-latin-ext-variable.woff2", "vendor/pdfjs/pdf.min.js", "vendor/pdfjs/pdf.worker.min.js", "tabs/all-of-me.pdf"];
+      const required = ["index.html", "app.js", "chords.js", "seeds.js", "sync.js", "fonts/manrope-latin-variable.woff2", "fonts/manrope-latin-ext-variable.woff2", "fonts/source-sans-3-latin-variable.woff2", "fonts/source-sans-3-latin-ext-variable.woff2", "vendor/pdfjs/pdf.min.js", "vendor/pdfjs/pdf.worker.min.js", "tabs/all-of-me.pdf"];
       return (await Promise.all(required.map(url => caches.match(url)))).every(Boolean);
     }, null, { timeout: 30000 });
     await ctx.unroute("**/*");
@@ -331,6 +333,123 @@ const PASTE = "Hm         G\nŠta će mi život, đavo čeka\n   A          H7\n
     await page.waitForSelector("canvas.pdf-page", { timeout: 20000 });
     await shot("tablatura-offline-ipad-pejzaz");
     await ctx.setOffline(false);
+  });
+  await step("GitHub sinhronizacija: dva uređaja, brisanje, sukob, loš token, bez mreže", async () => {
+    // Lažni GitHub API u memoriji: isti oblik zahtjeva i odgovora kao pravi (contents API).
+    const gh = { file: null, sha: null, commits: 0, fail: null, conflictOnce: null, tokens: new Set() };
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, accept", "access-control-allow-methods": "GET, PUT, OPTIONS" };
+    const send = (r, status, body) => r.fulfill({ status, headers: Object.assign({ "content-type": "application/json" }, cors), body: body === undefined ? "" : JSON.stringify(body) });
+    const b64 = s => Buffer.from(s, "utf8").toString("base64").replace(/(.{60})/g, "$1\n");
+    const remote = () => JSON.parse(gh.file);
+    const put = text => { gh.file = text; gh.commits++; gh.sha = "sha" + gh.commits; };
+    const fake = async r => {
+      const req = r.request(), url = new URL(req.url()), method = req.method();
+      if (method === "OPTIONS") return r.fulfill({ status: 204, headers: cors });
+      gh.tokens.add(req.headers()["authorization"]);
+      if (gh.fail) return send(r, gh.fail, { message: "fail" });
+      if (url.pathname === "/repos/test/gitara-podaci") return send(r, 200, { private: true });
+      if (url.pathname !== "/repos/test/gitara-podaci/contents/pjesme.json") return send(r, 404, { message: "Not Found" });
+      if (method === "GET") return gh.file ? send(r, 200, { sha: gh.sha, encoding: "base64", content: b64(gh.file) }) : send(r, 404, { message: "Not Found" });
+      const body = JSON.parse(req.postData());
+      if (gh.conflictOnce) { gh.conflictOnce(); gh.conflictOnce = null; return send(r, 409, { message: "conflict" }); }
+      if ((body.sha || null) !== gh.sha) return send(r, 409, { message: "sha" });
+      put(Buffer.from(body.content, "base64").toString("utf8"));
+      return send(r, 200, { content: { sha: gh.sha } });
+    };
+    const ctxB = await browser.newContext({ viewport: SIZES.iphone, hasTouch: true });
+    await ctx.route("https://api.github.com/**", fake); await ctxB.route("https://api.github.com/**", fake);
+    const pageB = await ctxB.newPage();
+    pageB.on("pageerror", e => errors.push("B: " + e)); pageB.on("console", m => { if (m.type() === "error" && !isGh(m)) errors.push("B: " + m.text()); });
+    pageB.on("dialog", d => d.accept());
+    const titles = p => p.evaluate(() => JSON.parse(localStorage.getItem("gitara-v2")).songs.map(s => s.title).sort());
+    const statusOf = (p, name) => p.evaluate(n => (JSON.parse(localStorage.getItem("gitara-v2")).songs.find(s => s.title === n) || {}).status, name);
+    const connect = async (p, token) => {
+      await p.click("#btnMenu"); await p.click('#panel [data-act="sync"]');
+      await p.fill("#syncOwner", "test"); await p.fill("#syncRepo", "gitara-podaci"); await p.fill("#syncToken", token);
+      await p.click('#panel [data-act="sync-connect"]');
+      await p.waitForSelector("#panel", { state: "hidden" });
+    };
+    const syncNow = async p => {
+      const before = await p.evaluate(() => (JSON.parse(localStorage.getItem("gitara-sync")) || {}).lastOk || 0);
+      await p.click("#btnMenu"); await p.click('#panel [data-act="sync"]'); await p.click('#panel [data-act="sync-now"]');
+      await p.waitForFunction(b => ((JSON.parse(localStorage.getItem("gitara-sync")) || {}).lastOk || 0) > b || /greška/.test(document.querySelector("#syncStatus").textContent), before);
+      await p.click('#panel [data-act="close"]');
+    };
+    const commitsAfter = async n => { for (let i = 0; i < 100 && gh.commits <= n; i++) await page.waitForTimeout(100); assert(gh.commits > n, "nema novog commita"); };
+
+    // 1. Uređaj A šalje svoje pjesme u prazan repo.
+    await page.setViewportSize(SIZES.ipadPortrait); await page.goto(BASE);
+    const local = await titles(page);
+    await connect(page, "tok-A");
+    await commitsAfter(0);
+    assert.deepStrictEqual(remote().songs.map(s => s.title).sort(), local);
+    assert(!(await page.evaluate(() => localStorage.getItem("gitara-v2"))).includes("tok-A"), "token nije u podacima pjesama");
+    assert(gh.tokens.has("Bearer tok-A"));
+
+    // 2. Uređaj B (prazan) dobija iste pjesme, uključujući izmijenjenu početnu pjesmu.
+    await pageB.goto(BASE); await connect(pageB, "tok-B");
+    await pageB.waitForFunction(() => JSON.parse(localStorage.getItem("gitara-v2")).songs.some(s => /MOJA IZMJENA/.test(s.chordpro)));
+    assert.deepStrictEqual(await titles(pageB), local);
+
+    // 3. Premještanje na B stiže na A.
+    const name = await pageB.evaluate(() => document.querySelector('.col[data-status="progress"] .song-title').textContent);
+    let c = gh.commits;
+    await pageB.locator(".cd", { hasText: name }).locator(".grip").tap();
+    await pageB.locator('#panel [data-act="move"][data-status="done"]').tap();
+    await commitsAfter(c);
+    await syncNow(page);
+    assert.strictEqual(await statusOf(page, name), "done", "premještanje s drugog uređaja");
+
+    // 4. Brisanje na A se prenosi na B i pjesma se ne vraća.
+    c = gh.commits;
+    await openSong("Stairway to Heaven"); await page.click("#songMenu"); await page.click('[data-act="delete-song"]');
+    await commitsAfter(c);
+    await syncNow(pageB); await pageB.reload(); await syncNow(pageB);
+    assert(!(await titles(pageB)).includes("Stairway to Heaven"), "obrisana pjesma ostaje obrisana");
+    assert(!remote().songs.some(s => s.title === "Stairway to Heaven"));
+
+    // 5. Sukob: neko drugi upiše između čitanja i pisanja. Ništa se ne gubi.
+    c = gh.commits;
+    gh.conflictOnce = () => { const d = remote(); d.songs.unshift({ id: "treci", title: "Sa trećeg uređaja", status: "idea", updatedAt: Date.now() }); put(JSON.stringify(d)); };
+    await page.click("#tabWork"); const nm = (await colOf("progress"))[0]; assert(nm, "ima pjesma u koloni U toku");
+    await page.locator(".cd", { hasText: nm }).locator(".grip").tap();
+    await page.locator('#panel [data-act="move"][data-status="refine"]').tap();
+    await commitsAfter(c + 1);
+    const d5 = remote();
+    assert(d5.songs.some(s => s.id === "treci") && d5.songs.find(s => s.title === nm).status === "refine", "obje izmjene su sačuvane");
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("gitara-v2")).songs.some(s => s.id === "treci"));
+
+    // 6. Loš ili istekao token: jasna poruka, pjesme ostaju; poruka nestaje kad se popravi.
+    gh.fail = 401;
+    await page.goto(BASE); await syncNow(page);
+    await page.waitForSelector("#notice:not([hidden])");
+    assert((await page.locator("#notice").innerText()).includes("token"));
+    await shot("sinhronizacija-los-token");
+    gh.fail = null; await syncNow(page);
+    assert(await page.locator("#notice").isHidden(), "poruka nestaje kad sinhronizacija proradi");
+
+    // 7. Bez mreže: nema greške, izmjena se šalje kad se veza vrati.
+    await ctxB.setOffline(true);
+    const nb = await pageB.evaluate(() => document.querySelector('.col[data-status="progress"] .song-title').textContent);
+    await pageB.locator(".cd", { hasText: nb }).locator(".grip").tap();
+    await pageB.locator('#panel [data-act="move"][data-status="idea"]').tap();
+    await pageB.waitForTimeout(2500);
+    assert(await pageB.locator("#notice").isHidden(), "bez mreže nije greška");
+    await pageB.click("#btnMenu");
+    assert((await pageB.locator('#panel [data-act="sync"]').innerText()).includes("čeka mrežu"));
+    await pageB.click('#panel [data-act="close"]');
+    c = gh.commits;
+    await ctxB.setOffline(false);
+    await commitsAfter(c);
+    assert.strictEqual(remote().songs.find(s => s.title === nb).status, "idea");
+
+    // Izvoz pjesama ne sadrži token, a prekid veze briše token s uređaja.
+    await page.click("#btnMenu");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-act="export"]')]);
+    assert(!fs.readFileSync(await dl.path(), "utf8").includes("tok-A"), "token nije u izvozu");
+    await page.click("#btnMenu"); await page.click('#panel [data-act="sync"]'); await page.click('#panel [data-act="sync-off"]');
+    assert(!(await page.evaluate(() => localStorage.getItem("gitara-sync"))).includes("tok-A"));
+    await ctxB.close();
   });
   await step("bez grešaka u konzoli tokom cijelog prolaza", async () => assert.deepStrictEqual(errors, []));
   console.log(results.join("\n"));

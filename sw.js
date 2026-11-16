@@ -1,6 +1,6 @@
 /* Offline rad. Pri svakoj izmjeni fajlova aplikacije povećaj VERSION. */
-var VERSION = "gitara-v3-kamen";
-var SHELL = ["./", "index.html", "app.js", "chords.js", "seeds.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
+var VERSION = "gitara-v3-sync";
+var SHELL = ["./", "index.html", "app.js", "chords.js", "seeds.js", "sync.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
   "fonts/manrope-latin-variable.woff2", "fonts/manrope-latin-ext-variable.woff2",
   "fonts/source-sans-3-latin-variable.woff2", "fonts/source-sans-3-latin-ext-variable.woff2"];
 var HEAVY = ["vendor/pdfjs/pdf.min.js", "vendor/pdfjs/pdf.worker.min.js", "tabs/all-of-me.pdf"];

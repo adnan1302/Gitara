@@ -22,7 +22,7 @@
   function str(v) { return typeof v === "string" ? v : ""; }
 
   /* ---------- Pohrana ---------- */
-  var state = { v: 2, songs: [], deletedSeeds: [], settings: {} };
+  var state = { v: 2, songs: [], deletedSeeds: [], settings: {}, removed: {}, orderAt: 0 };
   var startupNotice = "";
 
   function normalizeSong(s) {
@@ -60,11 +60,16 @@
       state.songs = data.songs.map(normalizeSong).filter(Boolean);
       state.deletedSeeds = Array.isArray(data.deletedSeeds) ? data.deletedSeeds.filter(function (x) { return typeof x === "string"; }) : [];
       state.settings = data.settings && typeof data.settings === "object" ? data.settings : {};
+      state.removed = data.removed && typeof data.removed === "object" && !Array.isArray(data.removed) ? data.removed : {};
+      state.orderAt = Number.isFinite(data.orderAt) ? data.orderAt : 0;
     }
+    // Brisanja iz vremena prije sinhronizacije dobijaju zapis o brisanju, da se pjesma ne vrati s drugog uređaja.
+    state.deletedSeeds.forEach(function (id) { if (!state.removed[id]) state.removed[id] = 1; });
+    if (!state.settings.firstUse) state.settings.firstUse = Date.now();
     // Početne pjesme se samo DODAJU ako nedostaju. Postojeće se nikad ne prepisuju.
     var added = false;
     SEEDS.forEach(function (seed) {
-      if (state.deletedSeeds.indexOf(seed.id) >= 0) return;
+      if (state.deletedSeeds.indexOf(seed.id) >= 0 || state.removed[seed.id]) return;
       if (state.songs.some(function (s) { return s.id === seed.id; })) return;
       var song = seedToSong(seed);
       if (song) { state.songs.push(song); added = true; }
@@ -72,8 +77,10 @@
     if (added || !raw) save(true);
   }
   function save(quiet) {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
     catch (e) { if (!quiet) toast("Nije sačuvano: pohrana preglednika je nedostupna ili puna."); return false; }
+    if (!quiet && typeof scheduleSync === "function") scheduleSync(1500);
+    return true;
   }
   function findSong(id) { return state.songs.filter(function (s) { return s.id === id; })[0] || null; }
 
@@ -206,7 +213,8 @@
           list.map(function (s) { return cardHTML(s, false); }).join("") + "</div></section>";
       }).join("");
     }
-    var n = $("#notice"); n.hidden = !startupNotice; n.textContent = startupNotice;
+    var msg = [startupNotice, syncNotice(), backupReminder()].filter(Boolean).join(" ");
+    var n = $("#notice"); n.hidden = !msg; n.textContent = msg;
   }
   function homeTab(t) { tab = t; $("#search").value = ""; renderList(); window.scrollTo(0, 0); }
   $("#tabWork").addEventListener("click", function () { homeTab("work"); });
@@ -218,6 +226,7 @@
     var changed = song.status !== status;
     state.songs.splice(state.songs.indexOf(song), 1);
     song.status = status; if (changed) song.updatedAt = Date.now();
+    state.orderAt = Date.now();
     var at = -1;
     if (beforeId) at = state.songs.indexOf(findSong(beforeId));
     if (at < 0) { for (var i = state.songs.length - 1; i >= 0; i--) if (state.songs[i].status === status) { at = i + 1; break; } }
@@ -338,14 +347,17 @@
   /* ---------- Podaci: izvoz i uvoz ---------- */
   $("#btnMenu").addEventListener("click", function () {
     openPanel('<div class="menu"><button type="button" class="btn" data-act="theme">' + (state.settings.theme !== "dark" ? "Tamna tema" : "Svijetla tema") + "</button>" +
+      '<button type="button" class="btn" data-act="sync">Sinhronizacija: ' + esc(syncLabel()) + "</button>" +
       '<button type="button" class="btn" data-act="import">Uvezi iz fajla (.json, .cho, .txt)</button>' +
       '<button type="button" class="btn" data-act="export">Izvezi sve pjesme (.json)</button>' +
       (state.deletedSeeds.length ? '<button type="button" class="btn" data-act="restore">Vrati obrisane početne pjesme (' + state.deletedSeeds.length + ")</button>" : "") +
-      '</div><p class="hint">Pjesme se čuvaju samo u ovom pregledniku na ovom uređaju. Povremeno ih izvezi kao rezervnu kopiju; istim fajlom ih prenosiš na drugi uređaj.</p>' +
+      '</div><p class="hint">' + (syncCfg() ? "Pjesme se čuvaju na ovom uređaju i u tvom GitHub repou " + esc(syncCfg().owner + "/" + syncCfg().repo) + ". Svaka izmjena ostaje kao verzija u historiji repoa." :
+        "Pjesme se čuvaju samo u ovom pregledniku na ovom uređaju. Poveži GitHub ili ih povremeno izvezi kao rezervnu kopiju.") + "</p>" +
       '<div class="menu"><button type="button" class="btn" data-act="close">Zatvori</button></div>');
   });
   function exportAll() {
     var d = new Date(), stamp = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+    state.settings.lastExport = Date.now(); save(true);
     deliver("gitara-pjesme-" + stamp + ".json", JSON.stringify({ app: "gitara", v: 2, exportedAt: d.toISOString(), songs: state.songs }, null, 2), "application/json");
   }
   function mergeSongs(list) {
@@ -353,8 +365,10 @@
     list.forEach(function (rawSong) {
       var s = normalizeSong(rawSong);
       if (!s) { skipped++; return; }
+      // Uvezena pjesma je namjerno vraćena, pa poništava ranije brisanje.
+      if (state.removed[s.id]) { s.updatedAt = Math.max(s.updatedAt, state.removed[s.id] + 1); delete state.removed[s.id]; }
       var cur = findSong(s.id);
-      if (!cur) { state.songs.unshift(s); added++; }
+      if (!cur) { state.songs.unshift(s); state.orderAt = Date.now(); added++; }
       else if (s.updatedAt > cur.updatedAt) { state.songs[state.songs.indexOf(cur)] = s; updated++; }
       else skipped++;
       var di = state.deletedSeeds.indexOf(s.id); if (di >= 0) state.deletedSeeds.splice(di, 1);
@@ -440,6 +454,7 @@
     if (!window.confirm("Obrisati pjesmu „" + song.title + "“? Ovo se ne može poništiti.")) return;
     var id = song.id;
     state.songs = state.songs.filter(function (s) { return s.id !== id; });
+    state.removed[id] = Date.now(); state.orderAt = Date.now();
     if (SEEDS.some(function (s) { return s.id === id; }) && state.deletedSeeds.indexOf(id) < 0) state.deletedSeeds.push(id);
     save(); toast("Pjesma je obrisana.");
     location.hash = ""; route();
@@ -752,9 +767,17 @@
     else if (a === "delete-song") { closePanel(); if (current) deleteSong(current); }
     else if (a === "import") { closePanel(); $("#importFile").click(); }
     else if (a === "theme") { toggleTheme(); closePanel(); }
+    else if (a === "sync") syncPanel();
+    else if (a === "sync-connect") syncConnect();
+    else if (a === "sync-now") { syncNow(true); }
+    else if (a === "sync-off") syncDisconnect();
     else if (a === "move") { var ms = menuSong; closePanel(); if (ms) { moveSong(ms.id, act.dataset.status); toast("Premješteno u " + LABELS[act.dataset.status] + "."); } }
     else if (a === "restore") {
-      state.deletedSeeds = []; closePanel(); save(); load(); renderList(); toast("Početne pjesme su vraćene.");
+      var back = state.deletedSeeds.slice(), now = Date.now();
+      back.forEach(function (id) { delete state.removed[id]; });
+      state.deletedSeeds = []; closePanel(); save(true); load();
+      state.songs.forEach(function (x) { if (back.indexOf(x.id) >= 0) x.updatedAt = now; });
+      state.orderAt = now; save(); renderList(); toast("Početne pjesme su vraćene.");
     }
   });
   $("#panel").addEventListener("keydown", function (e) {
@@ -770,7 +793,7 @@
     if (!draft.title) { toast("Upiši naslov pjesme."); $("#fTitle").focus(); return; }
     draft.updatedAt = Date.now();
     var song = normalizeSong(draft), cur = findSong(song.id);
-    if (cur) state.songs[state.songs.indexOf(cur)] = song; else state.songs.unshift(song);
+    if (cur) state.songs[state.songs.indexOf(cur)] = song; else { state.songs.unshift(song); state.orderAt = Date.now(); }
     if (!save()) return;
     toast("Sačuvano.");
     leaveEdit("#/p/" + encodeURIComponent(song.id));
@@ -820,11 +843,156 @@
   }
   window.addEventListener("hashchange", route);
 
+  /* ---------- Sinhronizacija s privatnim GitHub repoom ---------- */
+  // Postavke veze (s tokenom) su pod posebnim ključem, da nikad ne uđu u izvoz pjesama.
+  var SYNC_KEY = "gitara-sync";
+  var syncInfo = { busy: false, again: false, lastOk: 0, error: null, offline: false, sha: null };
+  var syncTimer = 0;
+  function syncCfg() {
+    try { var c = JSON.parse(localStorage.getItem(SYNC_KEY) || "null"); return c && c.owner && c.repo && c.token ? c : null; }
+    catch (e) { return null; }
+  }
+  function syncStored() { try { return JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {}; } catch (e) { return {}; } }
+  function storeSync(c) { try { localStorage.setItem(SYNC_KEY, JSON.stringify(c)); return true; } catch (e) { return false; } }
+  function hhmm(t) { var d = new Date(t); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  function syncLabel() {
+    if (!syncCfg()) return "nije povezano";
+    if (syncInfo.busy) return "u toku…";
+    if (syncInfo.error) return "greška";
+    if (syncInfo.offline) return "čeka mrežu";
+    var last = syncInfo.lastOk || syncStored().lastOk;
+    return last ? "sačuvano u " + hhmm(last) : "povezano";
+  }
+  function syncNotice() { return syncCfg() && syncInfo.error ? "Sinhronizacija ne radi: " + syncInfo.error + " Pjesme su i dalje sačuvane na ovom uređaju." : ""; }
+  function backupReminder() {
+    if (syncCfg()) return "";
+    var DAY = 864e5, last = state.settings.lastExport || 0, since = Date.now() - (last || state.settings.firstUse || Date.now());
+    if (since < 14 * DAY) return "";
+    return "Pjesme su samo na ovom uređaju" + (last ? ", a zadnja rezervna kopija je od prije " + Math.floor(since / DAY) + " dana." : " i još nisu izvezene.") + " Poveži GitHub ili ih izvezi u meniju ⋯.";
+  }
+  function refreshSyncUI() {
+    if (!$("#viewList").hidden && !(drag && drag.active)) renderList();
+    var lab = document.querySelector('#panel [data-act="sync"]'); if (lab) lab.textContent = "Sinhronizacija: " + syncLabel();
+    var st = $("#syncStatus"); if (st) st.textContent = syncLabel();
+  }
+  function scheduleSync(ms) {
+    if (!syncCfg()) return;
+    clearTimeout(syncTimer); syncTimer = setTimeout(function () { syncNow(false); }, ms || 0);
+  }
+  function localDoc() { return { songs: state.songs, removed: state.removed, orderAt: state.orderAt }; }
+  function applyMerged(m) {
+    var before = current ? JSON.stringify(current) : "";
+    state.songs = m.songs.map(normalizeSong).filter(Boolean);
+    state.removed = m.removed; state.orderAt = m.orderAt;
+    state.deletedSeeds = SEEDS.map(function (x) { return x.id; }).filter(function (id) { return state.removed[id] && !findSong(id); });
+    save(true);
+    if (current) {
+      var now = findSong(current.id);
+      if (!now) { toast("Ova pjesma je obrisana na drugom uređaju."); current = null; if (!$("#viewSong").hidden) { location.hash = ""; return; } }
+      else { current = now; if (!$("#viewSong").hidden && JSON.stringify(now) !== before) renderSong(); }
+    }
+  }
+  function syncNow(manual) {
+    var cfg = syncCfg(); if (!cfg) return Promise.resolve();
+    if (syncInfo.busy) { syncInfo.again = true; return Promise.resolve(); }
+    if (drag && drag.active) { scheduleSync(1500); return Promise.resolve(); }
+    if (navigator.onLine === false) { syncInfo.offline = true; refreshSyncUI(); return Promise.resolve(); }
+    var gh = GitaraSync.client(cfg, { api: cfg.api });
+    syncInfo.busy = true; refreshSyncUI();
+    function attempt(tries) {
+      return gh.read().then(function (r) {
+        var remote = r.doc ? { songs: r.doc.songs.map(normalizeSong).filter(Boolean), removed: r.doc.removed || {}, orderAt: r.doc.orderAt || 0 } : null;
+        var merged = remote ? GitaraSync.merge(localDoc(), remote) : localDoc();
+        if (!GitaraSync.same(merged, localDoc())) applyMerged(merged);
+        if (remote && GitaraSync.same(merged, remote)) return null;
+        var doc = { app: "gitara", v: 2, savedAt: new Date().toISOString(), orderAt: state.orderAt, removed: state.removed, songs: state.songs };
+        return gh.write(doc, r.sha, "Gitara: izmjene " + new Date().toISOString().slice(0, 16).replace("T", " ")).catch(function (e) {
+          if (e.kind === "conflict" && tries > 0) return attempt(tries - 1);
+          throw e;
+        });
+      });
+    }
+    return attempt(3).then(function () {
+      var hadError = syncInfo.error;
+      syncInfo.error = null; syncInfo.offline = false; syncInfo.lastOk = Date.now();
+      var c = syncStored(); c.lastOk = syncInfo.lastOk; storeSync(c);
+      if (manual) toast("Sinhronizovano s GitHubom.");
+      else if (hadError) toast("Sinhronizacija ponovo radi.");
+    }).catch(function (e) {
+      if (e && e.kind === "offline") { syncInfo.offline = true; }
+      else if (e && e.kind === "later") { syncInfo.offline = true; scheduleSync(60000); }
+      else {
+        var msg = (e && e.message) || "Nepoznata greška.";
+        if (syncInfo.error !== msg || manual) toast("Sinhronizacija: " + msg);
+        syncInfo.error = msg;
+      }
+    }).then(function () {
+      syncInfo.busy = false; refreshSyncUI();
+      if (syncInfo.again) { syncInfo.again = false; scheduleSync(300); }
+    });
+  }
+  function syncPanel() {
+    var cfg = syncCfg(), st = syncStored();
+    if (cfg) {
+      var gh = GitaraSync.client(cfg);
+      openPanel("<h3>Sinhronizacija</h3>" +
+        '<div class="setting"><span>Repo</span><span>' + esc(cfg.owner + "/" + cfg.repo) + "</span></div>" +
+        '<div class="setting"><span>Stanje</span><span id="syncStatus">' + esc(syncLabel()) + "</span></div>" +
+        (syncInfo.error ? '<p class="hint">' + esc(syncInfo.error) + "</p>" : "") +
+        '<p class="hint">Izmjene se šalju same, par sekundi nakon snimanja, i kad se aplikacija ponovo otvori. Svaka verzija ostaje u historiji repoa.</p>' +
+        '<div class="menu"><button type="button" class="btn" data-act="sync-now">Sinhronizuj sada</button>' +
+        '<a class="btn" href="' + esc(gh.historyUrl) + '" target="_blank" rel="noopener">Historija na GitHubu ↗</a>' +
+        '<button type="button" class="btn danger" data-act="sync-off">Prekini vezu na ovom uređaju</button>' +
+        '<button type="button" class="btn" data-act="close">Zatvori</button></div>');
+      return;
+    }
+    openPanel("<h3>Poveži GitHub</h3>" +
+      '<p class="hint">Pjesme se čuvaju u tvom privatnom repou kao fajl pjesme.json. Token upisuješ jednom na svakom uređaju; ostaje samo u ovom pregledniku i ne ulazi u izvoz.</p>' +
+      '<div class="form-grid">' +
+      '<label>GitHub korisnik<input id="syncOwner" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(st.owner || "") + '" placeholder="npr. adnan1302"></label>' +
+      '<label>Repo<input id="syncRepo" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(st.repo || "gitara-podaci") + '"></label>' +
+      '<label class="wide">Token<input id="syncToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…"></label></div>' +
+      '<p class="hint">Token napravi na <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a>: samo za ovaj repo, dozvola Contents: Read and write.</p>' +
+      '<div class="row" style="margin-bottom:0"><button type="button" class="btn primary" data-act="sync-connect">Poveži</button><span style="flex:1"></span><button type="button" class="btn" data-act="close">Otkaži</button></div>');
+  }
+  function syncConnect() {
+    var st = syncStored();
+    var cfg = { owner: $("#syncOwner").value.trim(), repo: $("#syncRepo").value.trim(), token: $("#syncToken").value.trim(), path: "pjesme.json", api: st.api };
+    if (!cfg.owner || !cfg.repo || !cfg.token) { toast("Upiši korisnika, repo i token."); return; }
+    var btn = document.querySelector('#panel [data-act="sync-connect"]'); if (btn) { btn.disabled = true; btn.textContent = "Provjeravam…"; }
+    GitaraSync.client(cfg, { api: cfg.api }).checkRepo().then(function (info) {
+      if (info && info.private === false && !window.confirm("Repo " + cfg.owner + "/" + cfg.repo + " je javan, pa bi pjesme vidjeli svi. Ipak ga koristiti?")) throw null;
+      if (!storeSync(cfg)) throw { message: "Preglednik ne dozvoljava pohranu postavki." };
+      syncInfo.error = null; closePanel();
+      return syncNow(false).then(function () {
+        if (!syncInfo.error) toast(syncInfo.offline ? "Povezano. Pjesme se šalju kad se veza vrati." : "Povezano. Pjesme su sačuvane na GitHubu.");
+        refreshSyncUI();
+      });
+    }).catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = "Poveži"; }
+      if (e) toast(e.kind === "offline" ? "Nema veze s GitHubom. Pokušaj kad budeš na internetu." : e.message || "Povezivanje nije uspjelo.");
+    });
+  }
+  function syncDisconnect() {
+    if (!window.confirm("Prekinuti vezu s GitHubom na ovom uređaju? Token se briše s uređaja, a pjesme ostaju i ovdje i na GitHubu.")) return;
+    var st = syncStored(); delete st.token; delete st.lastOk; storeSync(st);
+    syncInfo.error = null; syncInfo.offline = false; syncInfo.lastOk = 0;
+    closePanel(); refreshSyncUI(); toast("Veza s GitHubom je prekinuta na ovom uređaju.");
+  }
+  window.addEventListener("online", function () { syncInfo.offline = false; scheduleSync(500); });
+  window.addEventListener("offline", function () { if (syncCfg()) { syncInfo.offline = true; refreshSyncUI(); } });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - syncInfo.lastOk > 20000) scheduleSync(300);
+  });
+
   load();
   applyTheme();
   applyFont();
   updateWakeUI();
   route();
+  scheduleSync(0);
+  // Traži od preglednika da pohranu ne briše sam (Safari to inače radi nakon 7 dana bez posjete).
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
 
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () { /* offline rad nije dostupan */ }); });
