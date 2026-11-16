@@ -120,7 +120,7 @@ body.dragging .board{scroll-snap-type:none}
 .views{display:flex;gap:4px;margin:10px 0 0;flex-wrap:wrap;justify-content:center}
 .views .btn{color:var(--muted)}
 .views .btn.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
-.sheet{font-family:var(--read);font-size:var(--fs);font-weight:350;font-style:normal;line-height:1.5;padding:22px 0 calc(28vh + 70px);overflow-x:clip}
+.sheet{font-family:var(--read);font-size:var(--fs);font-weight:350;font-style:normal;line-height:1.5;padding:22px 0 calc(84px + env(safe-area-inset-bottom));overflow-x:clip}
 /* Blok teksta je centriran na ekranu; redovi ostaju poravnati lijevo da akordi stoje iznad slogova. */
 #songSheet{width:fit-content;min-width:min(100%,320px);max-width:100%;margin-left:auto;margin-right:auto}
 .blk{margin-bottom:1.1em}

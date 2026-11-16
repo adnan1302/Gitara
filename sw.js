@@ -1,5 +1,5 @@
 /* Offline rad. Pri svakoj izmjeni fajlova aplikacije povećaj VERSION. */
-var VERSION = "gitara-v17-kraj-teksta";
+var VERSION = "gitara-v18-kraj-teksta";
 var SHELL = ["./", "index.html", "app.js", "chords.js", "seeds.js", "sync.js", "song-details.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
   "fonts/manrope-latin-variable.woff2", "fonts/manrope-latin-ext-variable.woff2",
   "fonts/source-sans-3-latin-variable.woff2", "fonts/source-sans-3-latin-ext-variable.woff2"];
