@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="bs" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#dfe1df">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gitara">
+<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Gitara</title>
+<script>try{if(JSON.parse(localStorage.getItem("gitara-v2")).settings.theme==="dark"){document.documentElement.dataset.theme="dark";document.querySelector('meta[name="theme-color"]').content="#232425"}}catch(e){}</script>
+<style>
+@font-face{font-family:"Manrope";font-weight:400 600;font-style:normal;font-display:swap;src:url(fonts/manrope-latin-variable.woff2) format("woff2");}
+@font-face{font-family:"Source Sans 3";font-weight:300 500;font-style:normal;font-display:swap;src:url(fonts/source-sans-3-latin-variable.woff2) format("woff2");}
+@font-face{font-family:"Source Sans 3";font-weight:300 500;font-style:normal;font-display:swap;src:url(fonts/source-sans-3-latin-ext-variable.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face{font-family:"Manrope";font-weight:400 600;font-style:normal;font-display:swap;src:url(fonts/manrope-latin-ext-variable.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+/* Kamen: neutralna podloga, bez gradijenata i glowa. */
+:root{--bg:#dfe1df;--surface:#d9dbd9;--card:#f4f5f4;--line:#c4c6c4;--text:#292c2b;--muted:#626966;--accent:#596d65;--chord:#86501f;--onacc:#ffffff;--danger:#a3261c;--hov:#00000008;--shadow:#20282424;--fs:16px;
+  --sans:"Manrope",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--serif:var(--sans);--read:"Source Sans 3",ui-sans-serif,system-ui,sans-serif}
+:root[data-theme=dark]{--bg:#232425;--surface:#292a2b;--card:#2f3031;--line:#414345;--text:#f1f1ed;--muted:#b4b7b3;--accent:#b5c3b9;--chord:#e3b67e;--onacc:#232425;--danger:#ffabab;--hov:#ffffff0a;--shadow:#0005}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 var(--sans);-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+
+/* Dugmad: tiha po izgledu, ali s površinom za dodir od najmanje 44 px */
+.btn{border:1px solid transparent;border-radius:10px;min-height:44px;padding:0 12px;font-size:15px;font-weight:500;background:transparent;color:var(--text);display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;white-space:nowrap}
+.btn.outline{border-color:var(--line)}
+.btn.primary{background:var(--accent);color:var(--onacc);font-weight:600}
+.btn.danger{color:var(--danger)}
+.btn.active{color:var(--accent)}
+.btn.icon{min-width:44px;padding:0;color:var(--muted);font-size:20px}
+.theme-toggle{flex-shrink:0}
+.theme-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.theme-sun{display:none}
+:root[data-theme=dark] .theme-moon{display:none}
+:root[data-theme=dark] .theme-sun{display:block}
+.btn:disabled{opacity:.45}
+.btn:active{background:var(--hov)}
+.btn.primary:active{opacity:.85}
+@media(hover:hover){.btn:hover{background:var(--hov)}.btn.primary:hover{background:var(--accent);opacity:.92}.cd:hover{border-color:var(--muted)}}
+.btn:focus-visible,.cd:focus-visible,.tab:focus-visible,.w:focus-visible,.ch:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* Gornja traka */
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(20px + env(safe-area-inset-top)) 0 16px}
+.bar-in{max-width:var(--w,760px);margin:0 auto;padding:0 max(24px,env(safe-area-inset-right)) 0 max(24px,env(safe-area-inset-left));display:flex;gap:12px;align-items:center}
+.bar .grow{flex:1;min-width:0}
+.bar .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
+.wrap{max-width:var(--w,760px);margin:0 auto;padding:0 max(24px,env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
+#viewList{--w:1120px}
+#viewList .bar-in{padding-bottom:20px;position:relative}
+#viewList .bar-in::after{content:"";position:absolute;left:24px;right:24px;bottom:0;border-bottom:1px solid var(--line)}
+#viewSong,#viewEdit{--w:900px}
+#viewEdit .bar{border-bottom:1px solid var(--line)}
+#viewSong .wrap{padding-bottom:0}
+
+/* Početna: kartice „U radu“ i „Završeno“, pretraga */
+.hometabs{display:flex;gap:24px;margin-right:auto}
+.tab{border:0;background:transparent;min-height:44px;padding:0 2px;font:500 15px var(--sans);color:var(--muted);white-space:nowrap;border-radius:4px}
+.tab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
+.tab.drop{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.search{flex:0 1 260px;min-width:0;display:flex;align-items:center;gap:8px;background:transparent;border-bottom:1px solid var(--line);padding:0 6px;min-height:44px;color:var(--muted)}
+.search svg{width:18px;height:18px;flex:none}
+.search input[type=search]{border:0;outline:0;background:transparent;width:100%;min-width:0;min-height:42px;padding:0;color:var(--text);font-size:16px;-webkit-appearance:none;appearance:none}
+.search:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+#btnNew{border-color:var(--line);font-weight:600}
+#btnNew b{color:var(--accent);font-weight:600}
+@media(max-width:699px){.bar-in.nav{flex-wrap:wrap}.hometabs{flex:1}#btnMenu{order:2}.search{order:3;flex:1 1 60%}#btnNew{order:4}}
+.notice{border-left:3px solid var(--accent);background:var(--surface);color:var(--text);padding:10px 12px;margin:8px 0 12px;font-size:14px;border-radius:0 6px 6px 0}
+.empty{padding:36px 8px;text-align:center;color:var(--muted)}
+
+/* Tabla s tri kolone */
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start;margin-top:6px}
+.col{background:var(--surface);border-radius:12px;padding:8px 12px 12px;min-width:0}
+.colh{display:flex;align-items:center;gap:8px;padding-left:2px;padding-bottom:8px}
+.colh b{display:flex;align-items:center;gap:8px;font:500 13px var(--sans)}
+.colh b::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.7}
+.colh span{font-size:12px;color:var(--muted)}
+.colh .btn{margin-left:auto;color:var(--muted);font-size:20px;min-width:44px;padding:0}
+.cards{min-height:56px;display:flex;flex-direction:column;gap:10px}
+.cards:empty::after{content:"Prazno";color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
+.cd{position:relative;display:flex;align-items:stretch;background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:112px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.cd-main{flex:1;min-width:0;padding:18px 0 18px 16px;display:flex;flex-direction:column;justify-content:center}
+.song-title{font:500 17px/1.4 var(--sans);overflow-wrap:anywhere}
+.cd small{font-size:13.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd .mt{font-size:12px;color:var(--muted);margin-top:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grip{flex:none;width:44px;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:18px;line-height:1;letter-spacing:-2px;border-radius:0 10px 10px 0;touch-action:none;cursor:grab}
+.cd.lifted{display:none}
+.cd.ghost{position:fixed;z-index:80;margin:0;pointer-events:none;transform:rotate(-2deg);box-shadow:0 16px 36px var(--shadow);border-color:var(--line)}
+.slot{border:1.5px dashed var(--accent);border-radius:10px;flex:none}
+body.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
+body.dragging .board{scroll-snap-type:none}
+.rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px;margin-top:6px}
+.rows .cd{background:var(--card)}
+@media(max-width:699px){
+  .board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:10px;margin:6px calc(-1*max(24px,env(safe-area-inset-right))) 0 calc(-1*max(24px,env(safe-area-inset-left)));padding:0 max(24px,env(safe-area-inset-left)) 12px;scroll-padding:0 24px}
+  .col{flex:0 0 84%;scroll-snap-align:start}
+}
+
+/* Pjesma */
+.back{color:var(--muted);padding:0 8px}
+.song-head{padding:4px 0 2px;text-align:center}
+.song-head h2{font:500 clamp(28px,5vw,40px)/1.1 var(--serif);letter-spacing:-.02em;margin:0}
+.song-head .artist{font:400 16px var(--sans);color:var(--muted);margin-top:6px}
+.orn{display:flex;align-items:center;gap:12px;justify-content:center;margin:14px auto 0;color:var(--accent);font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;text-align:center}
+.orn::before,.orn::after{content:"";flex:0 1 90px;border-top:1px solid var(--line)}
+.views{display:flex;gap:4px;margin:10px 0 0;flex-wrap:wrap;justify-content:center}
+.views .btn{color:var(--muted)}
+.views .btn.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
+.sheet{font-family:var(--read);font-size:var(--fs);font-weight:350;font-style:normal;line-height:1.5;padding:22px 0 60vh;overflow-x:clip}
+.blk{margin-bottom:1.1em}
+.sheet.lab .blk{display:grid;grid-template-columns:96px minmax(0,1fr)}
+.blk>.sec{font:600 11px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);padding-top:.5em}
+.blk.hc>.sec{padding-top:calc(var(--fs)*1.3 + .5em)}
+.blk.ref>.lines{border-left:1px solid var(--muted);padding-left:16px}
+@media(max-width:599px){.sheet.lab .blk{display:block}.blk>.sec,.blk.hc>.sec{padding:0 0 .3em}}
+.ln{margin:0 0 .15em}
+.ln.gap{height:.9em}
+.ln.sec{color:var(--muted);font:600 .72em var(--sans);letter-spacing:.08em;text-transform:uppercase;margin:.7em 0 .25em}
+.w{display:inline-flex;vertical-align:bottom}
+.sg{display:inline-flex;flex-direction:column;align-items:flex-start}
+.c{display:flex;gap:.35em;min-height:1.3em;line-height:1.3;padding-right:.35em;color:var(--chord);font:600 .86em/1.3 var(--serif);white-space:pre}
+.t{white-space:pre;min-height:1.35em}
+.ln.nc .c{display:none}
+.sg.ov>.c{width:0;padding-right:0;overflow:visible}
+.tabpre{font:500 .78em/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto;border:1px solid var(--line);border-radius:6px;padding:10px;margin:.4em 0;-webkit-overflow-scrolling:touch}
+.hint{color:var(--muted);font-size:14px;margin:10px 0;font-family:var(--sans)}
+#showControls{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:40;background:var(--surface);border-color:var(--line);color:var(--text)}
+body.immersive #viewSong .bar,body.immersive .song-head,body.immersive #songViews,body.immersive .pdf-toolbar{display:none}
+body.immersive .sheet{padding-top:calc(14px + env(safe-area-inset-top))}
+/* PDF */
+#pdfOuter{max-width:1100px;margin:10px auto 0;padding:0 max(8px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-left))}
+.pdf-wrap{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.pdf-toolbar{display:flex;align-items:center;gap:4px;padding:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.zoom-label{font-size:13px;color:var(--muted);min-width:50px;text-align:center}
+.pdf-pages{height:calc(100vh - 230px);min-height:320px;overflow:auto;background:#cfcdc9;padding:8px;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch}
+body.immersive #pdfOuter{margin-top:env(safe-area-inset-top)}
+body.immersive .pdf-pages{height:calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+.pdf-page{display:block;margin:0 auto 8px;background:#fff;max-width:none}
+.pdf-loading{color:#222;text-align:center;padding:36px 12px}
+.pdf-loading a{color:#5a4320}
+.pdf-wrap.viewer-fullscreen{position:fixed;inset:0;z-index:50;border:0;border-radius:0;display:flex;flex-direction:column;margin:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+body.immersive .pdf-wrap.viewer-fullscreen .pdf-toolbar{display:flex}
+.pdf-wrap.viewer-fullscreen .pdf-pages{height:auto;flex:1;min-height:0}
+
+/* Uređivanje */
+.form-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));margin:14px 0}
+.form-grid label{display:grid;gap:4px;color:var(--muted);font-size:13px}
+.form-grid .wide{grid-column:1/-1}
+input[type=text],select.field,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;min-height:44px;width:100%;font-size:16px}
+textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto;min-height:44vh;resize:vertical;tab-size:8}
+.more{border-bottom:1px solid var(--line);margin:0 0 4px}
+.more summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:6px 0 0 -12px;overflow-x:auto}
+.tabs .btn{color:var(--muted);border-radius:0}
+.tabs .btn.active{color:var(--text);box-shadow:inset 0 -2px 0 var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;align-items:center}
+.banner{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 6px 6px 0;padding:10px 12px;margin:12px 0;font-size:15px}
+.banner .changes{font-family:ui-monospace,Menlo,monospace;font-size:14px;margin:6px 0 8px;color:var(--muted)}
+.banner .btn{border-color:var(--line)}
+.sheet.edit{line-height:1.5;padding-bottom:70vh}
+.sheet.edit .ln{margin-bottom:.5em}
+.sheet.edit .w{cursor:pointer;padding:2px 0}
+.sheet.edit .w.word .t{border-bottom:1px dotted var(--muted)}
+.sheet.edit .w.word:active .t,.w.sel .t{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.sheet.edit .ch{border:0;font-family:var(--serif);background:color-mix(in srgb,var(--chord) 12%,transparent);color:var(--chord);font-weight:600;border-radius:4px;padding:0 .35em;min-height:1.3em;line-height:1.3;font-size:1em}
+.sheet.edit .c{padding-right:.2em}
+@media(max-width:560px){.form-grid{grid-template-columns:1fr}}
+
+/* Panel (donji na telefonu, uži na širokom ekranu) */
+.backdrop{position:fixed;inset:0;background:#00000080;z-index:60}
+.sheet-panel{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--surface);border-top:1px solid var(--line);border-radius:12px 12px 0 0;padding:14px max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));max-height:80vh;overflow:auto}
+@media(min-width:700px){.sheet-panel{left:50%;right:auto;width:460px;transform:translateX(-50%);bottom:20px;border:1px solid var(--line);border-radius:10px}}
+.sheet-panel h3{margin:0 0 8px;font:500 19px var(--serif)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+.chips .btn{min-width:52px;border-color:var(--line)}
+.chips .btn.active{border-color:var(--accent)}
+.menu{display:grid}
+.menu .btn{justify-content:flex-start;border-radius:6px}
+.sheet-panel .row .btn{border-color:var(--line)}
+.sheet-panel .row .btn.primary{border-color:transparent}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;border-bottom:1px solid var(--line)}
+.setting .stepper{display:flex;align-items:center;gap:2px}
+.setting .stepper .btn{min-width:48px;border-color:var(--line)}
+.setting .stepper .val{min-width:44px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums;border-color:transparent}
+.setting #wakeBtn{border-color:var(--line);min-width:120px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);border-radius:8px;padding:10px 14px;font-size:14px;z-index:70;max-width:calc(100% - 32px);text-align:center}
+</style>
+</head>
+<body>
+
+<!-- LISTA -->
+<main id="viewList">
+  <div class="bar"><div class="bar-in nav">
+    <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Završeno</button></div>
+    <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
+    <button id="btnNew" class="btn" type="button"><b>+</b> Dodaj</button>
+    <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+    <button id="btnMenu" class="btn icon" type="button" aria-label="Meni">⋯</button>
+  </div></div>
+  <div class="wrap">
+    <div id="notice" class="notice" role="alert" hidden></div>
+    <div id="board" class="board"></div>
+    <section id="songs" class="rows" aria-live="polite"></section>
+    <div id="empty" class="empty" hidden></div>
+  </div>
+</main>
+
+<!-- PJESMA -->
+<main id="viewSong" hidden>
+  <div class="bar"><div class="bar-in">
+    <button class="btn back" id="songBack" type="button">‹ Pjesme</button>
+    <span class="grow"></span>
+    <button class="btn" id="btnView" type="button">Prikaz</button>
+    <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+    <button class="btn icon" id="songMenu" type="button" aria-label="Meni pjesme">⋯</button>
+  </div></div>
+  <div class="wrap">
+    <div class="song-head"><h2 id="songTitle"></h2><div class="artist" id="songArtist"></div><div class="orn" id="songMeta"></div></div>
+    <div class="views" id="songViews"></div>
+    <div id="songSheet" class="sheet"></div>
+  </div>
+  <div id="pdfOuter"><div id="pdfWrap" class="pdf-wrap" hidden>
+    <div class="pdf-toolbar"><button class="btn icon" id="zoomOut" type="button" aria-label="Umanji">−</button><span class="zoom-label" id="zoomLabel">100%</span><button class="btn icon" id="zoomIn" type="button" aria-label="Uvećaj">+</button><button class="btn" id="zoomFit" type="button">Širina</button><button class="btn" id="fullscreenBtn" type="button">Cijeli ekran</button></div>
+    <div id="pdfPages" class="pdf-pages"></div>
+  </div></div>
+  <button class="btn outline" id="showControls" type="button" hidden>Prikaži kontrole</button>
+</main>
+
+<!-- UREĐIVANJE -->
+<main id="viewEdit" hidden>
+  <div class="bar"><div class="bar-in">
+    <button class="btn" id="editCancel" type="button">Otkaži</button>
+    <span class="grow name" id="editHeading"></span>
+    <button class="btn primary" id="editSave" type="button">Sačuvaj</button>
+  </div></div>
+  <div class="wrap">
+    <div class="form-grid">
+      <label>Naslov<input id="fTitle" type="text" autocomplete="off" placeholder="npr. Lipe cvatu"></label>
+      <label>Izvođač<input id="fArtist" type="text" autocomplete="off" placeholder="npr. Bijelo dugme"></label>
+    </div>
+    <details class="more">
+      <summary>Status, napomena i notacija</summary>
+      <div class="form-grid">
+        <label>Status<select id="fStatus" class="field"></select></label>
+        <label>Napomena (tonalitet, capo, štim)<input id="fMeta" type="text" autocomplete="off" placeholder="npr. Am · capo 2"></label>
+        <label class="wide">Notacija akorda (važno za transpoziciju)<select id="fNotation" class="field"><option value="en">Engleska: B je ton H, Bb je sniženo</option><option value="de">Njemačka: H je ton H, B je sniženo (Bb)</option></select></label>
+      </div>
+    </details>
+    <div class="tabs" role="tablist"><button class="btn" data-tab="paste" type="button">1. Zalijepi</button><button class="btn" data-tab="preview" type="button">2. Pregled i akordi</button><button class="btn" data-tab="text" type="button">Tekst (ChordPro)</button></div>
+
+    <section id="tabPaste">
+      <p class="hint">Zalijepi tekst s akordima kakav jeste: akordi iznad riječi, ChordPro ili [Am] u tekstu. Original se čuva uz pjesmu.</p>
+      <div class="row"><button class="btn outline" id="pasteClip" type="button">Zalijepi iz međuspremnika</button><button class="btn primary" id="pasteConvert" type="button">Pretvori i pregledaj</button></div>
+      <textarea id="fOriginal" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Am          G&#10;Ovdje zalijepi tekst pjesme"></textarea>
+    </section>
+
+    <section id="tabPreview" hidden>
+      <div id="hBanner" class="banner" hidden></div>
+      <div class="row"><span class="hint" style="margin:0;flex:1;min-width:200px">Dodirni riječ da dodaš akord. Dodirni akord da ga promijeniš, pomjeriš ili obrišeš.</span><button class="btn outline" id="undoBtn" type="button" disabled>Poništi</button></div>
+      <div id="editSheet" class="sheet edit"></div>
+    </section>
+
+    <section id="tabText" hidden>
+      <p class="hint">Ovdje ispravljaš tekst. Akordi su u uglastim zagradama ispred sloga na kojem se sviraju, a oznake dijelova su {c: Refren}.</p>
+      <textarea id="fChordpro" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+    </section>
+  </div>
+</main>
+
+<div id="backdrop" class="backdrop" hidden></div>
+<div id="panel" class="sheet-panel" role="dialog" aria-modal="true" hidden><div id="panelBody"></div></div>
+
+<!-- PRIKAZ: veličina slova, transpozicija, ekran -->
+<div id="viewPanel" class="sheet-panel" role="dialog" aria-modal="true" aria-label="Prikaz" hidden>
+  <h3>Prikaz</h3>
+  <div class="setting"><span>Veličina slova</span><span class="stepper"><button class="btn" id="fontDown" type="button" aria-label="Manja slova">A−</button><span class="val" id="fontVal"></span><button class="btn" id="fontUp" type="button" aria-label="Veća slova">A+</button></span></div>
+  <div class="setting" id="transGroup"><span>Transpozicija</span><span class="stepper"><button class="btn" id="transDown" type="button" aria-label="Pola tona niže">−</button><button class="btn val" id="transVal" type="button" aria-label="Vrati izvorni tonalitet">0</button><button class="btn" id="transUp" type="button" aria-label="Pola tona više">+</button></span></div>
+  <div class="setting"><span>Ekran ostaje upaljen</span><button class="btn" id="wakeBtn" type="button" aria-pressed="false">Isključeno</button></div>
+  <div class="row" style="margin-bottom:0"><button class="btn" id="hideControls" type="button">Sakrij kontrole</button><span style="flex:1"></span><button class="btn" id="viewPanelClose" type="button">Gotovo</button></div>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<input id="importFile" type="file" accept=".json,.cho,.chopro,.crd,.pro,.txt,application/json,text/plain" hidden>
+
+<script src="chords.js"></script>
+<script src="seeds.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
