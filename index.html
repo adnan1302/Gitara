@@ -212,7 +212,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
 .content-dot{display:inline-block;flex:none;width:8px;height:8px;border-radius:50%;vertical-align:middle;margin-right:9px;background:currentColor}
 .content-dot.red{color:var(--label-red)}.content-dot.yellow{color:var(--label-yellow)}
 #songLabel .content-dot{margin:0;width:10px;height:10px}
-.filter-row{position:relative;display:flex;align-items:center;gap:8px;min-width:0;height:20px;padding-left:6px;color:var(--muted);font:500 12px/18px var(--sans)}
+.filter-row{position:relative;display:flex;align-items:center;gap:8px;min-width:0;height:20px;padding-left:27px;color:var(--muted);font:500 12px/18px var(--sans)}
 .filter-row::after{content:"";position:absolute;right:8px;top:7px;width:4px;height:4px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg);pointer-events:none}
 .filter-row select{flex:1;min-width:0;width:0;height:20px;min-height:0;padding:0 24px 0 0;border:0;border-radius:4px;background:transparent;color:var(--muted);font:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;text-overflow:ellipsis}
 .filter-row select:hover{color:var(--text)}
@@ -235,7 +235,7 @@ textarea{font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:
     <div class="hometabs" role="tablist"><button class="tab on" id="tabWork" type="button" role="tab">U radu</button><button class="tab" id="tabDone" type="button" role="tab">Kolekcija</button></div>
     <div class="search-tools">
       <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.500 4.500"/></svg><input id="search" type="search" placeholder="Pretraži" aria-label="Pretraži pjesme" autocomplete="off"></label>
-      <div class="filter-row"><label for="contentFilter">Sadržaj</label><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Žuta · treba doradu</option><option value="none">Bez oznake</option></select></div>
+      <div class="filter-row"><select id="contentFilter" aria-label="Filtriraj po oznaci sadržaja"><option value="all">Sve oznake</option><option value="red">Crvena · nedostaje / nije dobro</option><option value="yellow">Žuta · treba doradu</option><option value="none">Bez oznake</option></select></div>
     </div>
     <button id="btnNew" class="btn" type="button"><b>+</b> Dodaj</button>
     <button class="btn icon theme-toggle" type="button" data-theme-toggle aria-label="Uključi tamni mod" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
